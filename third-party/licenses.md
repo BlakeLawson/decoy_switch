@@ -10,3 +10,6 @@ tcpHeaders (https://github.com/grahamking/latency):
 
 This library is used to write custom TCP headers over a raw socket. The library
 contains tcp.go, which provides TCP header parsing/writing functions.
+
+Changes:
+* Changed package name from "main" to "tcpHeaders" so the code can be imported.

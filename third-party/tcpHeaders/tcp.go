@@ -14,7 +14,7 @@ GNU General Public License for more details.
 For full license details see <http://www.gnu.org/licenses/>.
 */
 
-package main
+package tcpHeaders
 
 import (
 	"bytes"
