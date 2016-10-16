@@ -1,7 +1,7 @@
 // Author: Blake Lawson (blawson@princeton.edu)
 // Adviser: Jennifer Rexford
 
-package main
+package server
 
 import (
   "log"
@@ -9,7 +9,7 @@ import (
 )
 
 // port is the TCP port that the server listens on.
-const port string = ":80"
+const port string = ":8888"
 
 // handleRequest serves client requests.
 func handleRequest(conn net.Conn) {
@@ -19,7 +19,7 @@ func handleRequest(conn net.Conn) {
 }
 
 // main starts the proxy.
-func main() {
+func Start() {
   l, err := net.Listen("tcp", port)
   if err != nil {
     log.Fatalln(err)

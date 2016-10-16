@@ -186,7 +186,7 @@ func sendSyn(laddr, raddr string, port uint16) time.Time {
 	}
 
 	data := packet.Marshal()
-	packet.Checksum = Csum(data, to4byte(laddr), to4byte(raddr))
+	packet.Checksum = Csum(data, To4byte(laddr), To4byte(raddr))
 
 	data = packet.Marshal()
 
@@ -212,7 +212,7 @@ func sendSyn(laddr, raddr string, port uint16) time.Time {
 	return sendTime
 }
 
-func to4byte(addr string) [4]byte {
+func To4byte(addr string) [4]byte {
 	parts := strings.Split(addr, ".")
 	b0, err := strconv.Atoi(parts[0])
 	if err != nil {
