@@ -20,7 +20,20 @@ Steps:
 
 Week 10/11 - 10/18
 ------------------
+* (10/12) Lots of time spent debugging test environment. By the end of the day,
+managed to get environment working and could send normal requests to/from
+client and server.
+** Updated version of Mininet so Mininet runs on upgraded VM kernel.
+** Wrote real topo.py that executes commands on the virtual hosts.
+** Changed tcpdump permissions in the test VM so that tcpdump can write log
+files.
+** Downloaded golang library for working with TCP headers and restructured
+files so that go modules are arranged in a more go-like manner.
 
+* (10/16) Mostly explicit TCP header manipulation.
+** In set up client.go so that it sends SYN packets with custom sequence
+numbers.
+** Started writing p4 code to detect special tagged SYN packets.
 
 Design Decisions
 ================
