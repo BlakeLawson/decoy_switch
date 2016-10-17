@@ -34,8 +34,8 @@ class TestTopo(Topo):
         super(TestTopo, self).__init__()
         self.addHost('client', ip='10.0.0.1', mac='00:00:00:00:00:01')
         self.addHost('proxy', ip='10.0.0.2', mac='00:00:00:00:00:02')
-        self.addHost('decoy_dst', ip='10.0.0.4', mac='00:00:00:00:00:03')
-        self.addHost('covert_dst', ip='10.0.0.5', mac='00:00:00:00:00:04')
+        self.addHost('decoy_dst', ip='10.0.0.3', mac='00:00:00:00:00:03')
+        self.addHost('covert_dst', ip='10.0.0.4', mac='00:00:00:00:00:04')
 
         self.addSwitch('s1')
 

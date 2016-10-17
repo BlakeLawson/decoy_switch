@@ -28,10 +28,16 @@ Design Decisions
 
 Tagging
 -------
-
+Right now, it doesn't look like any of the tagging techniques outlined in the
+decoy routing paper, the telex paper, or the cirripede paper will be
+straightforward to implement using p4. Of the three, cirripede's method is most
+likely to work (it stores the tag in the initial TCP sequence number), but for
+the time being, the plan is to use a "dummy" tag that is rather easy to detect
+until most of the other decoy switch functionality is complete.
 
 
 TODO List
 =========
 * Migrate custom TCP handshake code from client.go to a separate TCP library.
 * Investigate value for initial TCP congestion window
+* Swap current p4 code with learning switch at https://github.com/p4lang/switch
