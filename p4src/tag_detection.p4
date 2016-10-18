@@ -37,7 +37,7 @@ calculated_field ipv4.hdrChecksum {
 }
 
 action _drop() {
-  drop()
+  drop();
 }
 
 header_type custom_metadata_t {
@@ -51,7 +51,7 @@ metadata custom_metadata_t custom_metadata;
 action set_nhop(nhop_ipv4, port) {
   modify_field(custom_metadata.nhop_ipv4, nhop_ipv4);
   modify_field(standard_metadata.egress_spec, port);
-  add_to_field(ipv4.ttl, -1)
+  add_to_field(ipv4.ttl, -1);
 }
 
 action set_dmac(dmac) {
