@@ -4,6 +4,7 @@
 # Adviser: Jennifer Rexford
 
 from mininet.cli import CLI
+from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
 from mininet.node import OVSController
@@ -50,7 +51,7 @@ class TestTopo(Topo):
         self.addHost('covert_dst', ip='10.0.0.4', mac='00:00:00:00:00:04')
 
         self.addSwitch('s1', sw_path=sw_path, json_path=json_path, 
-                       thirft_port=_THRIFT_BASE_PORT, pcap_dump=True)
+                       thrift_port=_THRIFT_BASE_PORT, pcap_dump=True)
 
         self.addLink('s1', 'client')
         self.addLink('s1', 'proxy')
@@ -106,6 +107,9 @@ def make_argparse():
 
 
 def main(args):
+    if _verbose:
+        setLogLevel('info')
+
     vprint('Starting test')
     topo = TestTopo(sw_path=args.behavioral_exe, json_path=args.json)
     vprint('Initialized topo')

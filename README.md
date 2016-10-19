@@ -35,6 +35,15 @@ files so that go modules are arranged in a more go-like manner.
 numbers.
   * Started writing p4 code to detect special tagged SYN packets.
 
+* (10/18) Getting P4 switch to work in mininet + Meeting with Jen.
+  * P4 code compiles and executes (abit incorrectly) in the mininet test
+environment.
+
+Week 10/19 - 10/25
+-------------------------
+* Replace explicit client code with P4 program that overwrites OS seq number
+with custom, decoy switch seq.
+
 Design Decisions
 ================
 
@@ -48,6 +57,15 @@ likely to work (it stores the tag in the initial TCP sequence number), but for
 the time being, the plan is to use a "dummy" tag that is rather easy to detect
 until most of the other decoy switch functionality is complete.
 
+It should be noted that the current solution to this problem is to write
+custom TCP packets on a raw socket. Hopefully it will be possible to wrap the
+raw socket in another socket after the TCP handshake, but it is not clear
+whether this will work. If it does not, it will be sufficient to write only the
+necessary parts of TCP for testing purposes and note that in future
+implementations, this should be more robust.
+
+Another solution is to do the tagging in a separate P4 program that runs on the
+client's machine. This should be a lot easier than implementing TCP.
 
 TODO List
 =========
