@@ -37,12 +37,20 @@ numbers.
 
 * (10/18) Getting P4 switch to work in mininet + Meeting with Jen.
   * P4 code compiles and executes (abit incorrectly) in the mininet test
-environment.
+environment. Not clear why P4 program not executing correctly.
 
 Week 10/19 - 10/25
 -------------------------
 * Replace explicit client code with P4 program that overwrites OS seq number
 with custom, decoy switch seq.
+
+* (10/19) Debugging P4 program
+  * Fixed P4 vim syntax highlighting (bug in file from bearfoot. Fix pushed
+upstream)
+  * Determined that P4 code not executing because switch does not support ARP
+* (10/20) Fixing P4 program and working on tag detection
+  * Added support for ARP queries. P4 Program functions as expected.
+
 
 Design Decisions
 ================
@@ -50,8 +58,8 @@ Design Decisions
 
 Tagging
 -------
-Right now, it doesn't look like any of the tagging techniques outlined in the
-decoy routing paper, the telex paper, or the cirripede paper will be
+(10/11) Right now, it doesn't look like any of the tagging techniques outlined
+in the decoy routing paper, the telex paper, or the cirripede paper will be
 straightforward to implement using p4. Of the three, cirripede's method is most
 likely to work (it stores the tag in the initial TCP sequence number), but for
 the time being, the plan is to use a "dummy" tag that is rather easy to detect
@@ -64,8 +72,20 @@ whether this will work. If it does not, it will be sufficient to write only the
 necessary parts of TCP for testing purposes and note that in future
 implementations, this should be more robust.
 
-Another solution is to do the tagging in a separate P4 program that runs on the
-client's machine. This should be a lot easier than implementing TCP.
+(10/18) Another solution is to do the tagging in a separate P4 program that
+runs on the client's machine. This should be a lot easier than implementing TCP.
+
+
+ARP Queries
+-----------
+(10/20) The P4 sample L3 switch that my P4 code is based on did not support ARP,
+queries, so I added rudimentary support for ARP as follows: since the current
+mininet topology is hardcoded into the P4 routing tables, and the switch has
+complete knowledge of the network, there is no reason to broadcast ARP queries.
+Instead, whenever the switch receives an ARP request, it spoofs a response from
+the target host that the sender is trying to query that gives the target's mac
+and ip.
+
 
 TODO List
 =========

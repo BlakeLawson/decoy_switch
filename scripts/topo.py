@@ -50,8 +50,13 @@ class TestTopo(Topo):
         self.addHost('decoy_dst', ip='10.0.0.3', mac='00:00:00:00:00:03')
         self.addHost('covert_dst', ip='10.0.0.4', mac='00:00:00:00:00:04')
 
-        self.addSwitch('s1', sw_path=sw_path, json_path=json_path, 
-                       thrift_port=_THRIFT_BASE_PORT, pcap_dump=True)
+        self.addSwitch(
+                's1',
+                sw_path=sw_path + ' --log-console',
+                json_path=json_path,
+                thrift_port=_THRIFT_BASE_PORT,
+                pcap_dump=True,
+                verbose=True)
 
         self.addLink('s1', 'client')
         self.addLink('s1', 'proxy')
@@ -123,7 +128,7 @@ def main(args):
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
-    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.cap &> /dev/null &')
+    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap &> /dev/null &')
     proxy.cmd('go run src/main/proxy.go &> log/proxy.txt &')
 
     decoy = net.getNodeByName('decoy_dst')
@@ -133,7 +138,7 @@ def main(args):
     covert.cmd('go run src/main/server.go &> log/covert.txt &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.cap &> /dev/null &')
+    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap &> /dev/null &')
     client.cmd('go run src/main/client.go &> log/client.txt &')
 
     sleep(2)
