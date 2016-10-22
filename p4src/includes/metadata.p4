@@ -23,3 +23,13 @@ header_type arp_tmp_metadata_t {
 }
 
 metadata arp_tmp_metadata_t arp_tmp_metadata;
+
+/* Decoy switching metadata */
+header_type decoy_metadata_t {
+  fields {
+    tag : 32;
+    proxyIp : 32;
+  }
+}
+
+metadata decoy_metadata_t decoy_metadata;

@@ -4,6 +4,9 @@
 package client
 
 import (
+  "bytes"
+  "encoding/binary"
+  "hash/crc32"
   "log"
   "math/rand"
   "net"
@@ -13,6 +16,9 @@ import (
 
 const proxyIP string = "10.0.0.2"
 const proxyPort uint16 = 8888
+
+const decoyDst string = "10.0.0.3"
+const decoyPort uint16 = 80
 
 // getPort Generates random port number.
 func getPort() uint16 {
@@ -27,24 +33,49 @@ func getPort() uint16 {
 
 // getSeq() makes the sequence number hash that indicates decoy routing
 // desired.
-func getSeq(srcIP string, srcPort uint16, dstIp string, dstPort uint16) uint32 {
-  return rand.Uint32()
+func getSeq(srcIp string,
+            srcPort uint16,
+            dstIp string,
+            dstPort uint16,
+            window uint16) uint32 {
+  // Convert to byte array
+  var byteBuffer bytes.Buffer
+
+  srcIpByte := tcpHeaders.To4byte(srcIp)
+  dstIpByte := tcpHeaders.To4byte(dstIp)
+  byteBuffer.Write(srcIpByte[:])
+  byteBuffer.Write(dstIpByte[:])
+
+  vals := []uint16{
+    srcPort,
+    dstPort,
+    window,
+  }
+
+  for i := 0; i < len(vals); i++ {
+    b := make([]byte, 8)
+    n := binary.PutUvarint(b, uint64(vals[i]))
+    byteBuffer.Write(b[:n])
+  }
+
+  return crc32.Checksum(byteBuffer.Bytes(), crc32.MakeTable(crc32.IEEE))
 }
 
 // makeSynPacket generates the initial TCP SYN packet using specially chosen
 // sequence number to request decoy routing.
 func makeSynPacket(srcIP string, srcPort uint16, dstIP string, dstPort uint16) []byte {
+  var windowSize uint16 = 0xAAAA
   packet := tcpHeaders.TCPHeader{
     Source: srcPort,
     Destination: dstPort,
-    SeqNum: getSeq(srcIP, srcPort, dstIP, dstPort),
+    SeqNum: getSeq(srcIP, srcPort, dstIP, dstPort, windowSize),
     AckNum: 0,
     DataOffset: 5, // No extra data
     Reserved: 0,
     ECN: 0,
-    Ctrl: 2, // 000010: SYN set
-    Window: 0xAAAA, // TODO: Investigate good value for this. 
-    Checksum: 0, // Set by kernel
+    Ctrl: tcpHeaders.SYN,
+    Window: windowSize, // TODO: Investigate good value for this. 
+    Checksum: 0, // Set below
     Urgent: 0,
     Options: []tcpHeaders.TCPOption{},
   }
@@ -66,7 +97,7 @@ func doHandshake(conn net.Conn) error {
 
   log.Println("about to make syn packet")
   syn := makeSynPacket(conn.LocalAddr().String(), getPort(),
-                       conn.RemoteAddr().String(), proxyPort)
+                       conn.RemoteAddr().String(), decoyPort)
   _, err := conn.Write(syn)
   if err != nil {
     return err
@@ -85,7 +116,7 @@ func doHandshake(conn net.Conn) error {
 }
 
 func Start() {
-  conn, err := net.Dial("ip4:tcp", proxyIP)
+  conn, err := net.Dial("ip4:tcp", decoyDst)
   if err != nil {
     log.Fatalf("Dial: %s\n", err)
   }

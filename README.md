@@ -50,7 +50,12 @@ upstream)
   * Determined that P4 code not executing because switch does not support ARP
 * (10/20) Fixing P4 program and working on tag detection
   * Added support for ARP queries. P4 Program functions as expected.
-
+  * P4 tag detection code written. Currently figuring out the best way to
+reroute packets to the proxy.
+* (10/22) More tag detection and P4 routing
+  * Finished writing code for tag detection and rerouting in P4
+  * Write client code to encode tag in SYN SEQ number
+  * Issues while debugging. Next step is finding this bug (error using P4 CLI)
 
 Design Decisions
 ================

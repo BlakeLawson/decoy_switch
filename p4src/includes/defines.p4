@@ -34,3 +34,11 @@
 #define IP_PROTOCOLS_TCP    6
 #define IP_PROTOCOLS_UDP    17
 #define IP_PROTOCOLS_IPV6   41
+
+/* TCP Flags */
+#define TCP_FLAG_FIN        1
+#define TCP_FLAG_SYN        2
+#define TCP_FLAG_RST        4
+#define TCP_FLAG_PSH        8
+#define TCP_FLAG_ACK        16
+#define TCP_FLAG_URG        32
