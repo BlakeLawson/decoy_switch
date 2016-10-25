@@ -129,17 +129,17 @@ def main(args):
 
     proxy = net.getNodeByName('proxy')
     proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap &> /dev/null &')
-    proxy.cmd('go run src/main/proxy.go &> log/proxy.txt &')
+    proxy.cmd('go run src/main/proxy.go &> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy_dst')
-    decoy.cmd('go run src/main/server.go &> log/decoy.txt &')
+    decoy.cmd('go run src/main/server.go &> log/decoy.log &')
 
     covert = net.getNodeByName('covert_dst')
-    covert.cmd('go run src/main/server.go &> log/covert.txt &')
+    covert.cmd('go run src/main/server.go &> log/covert.log &')
 
     client = net.getNodeByName('client')
     client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap &> /dev/null &')
-    client.cmd('go run src/main/client.go &> log/client.txt &')
+    client.cmd('go run src/main/client.go &> log/client.log &')
 
     sleep(2)
     if args.mininet_cli:

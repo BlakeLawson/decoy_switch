@@ -84,7 +84,7 @@ action set_arp_resp(dmac) {
 
 table arp_resp_lookup {
   reads {
-    arp_tmp_metadata.queryIp: exact;
+    arp.tgtProtoAddr: exact;
   }
   actions {
     set_arp_resp;
@@ -152,11 +152,11 @@ control ingress {
   if (valid(tcp)) {
     tcp_ingress();
   }
-  if (valid(ipv4)) {
-    ipv4_ingress();
-  }
   if (valid(arp)) {
     arp_ingress();
+  }
+  if (valid(ipv4)) {
+    ipv4_ingress();
   }
 }
 

@@ -19,4 +19,4 @@ table_add arp_resp_lookup set_arp_resp 10.0.0.1 => 00:00:00:00:00:01
 table_add arp_resp_lookup set_arp_resp 10.0.0.2 => 00:00:00:00:00:02
 table_add arp_resp_lookup set_arp_resp 10.0.0.3 => 00:00:00:00:00:03
 table_add arp_resp_lookup set_arp_resp 10.0.0.4 => 00:00:00:00:00:04
-table_add proxy_ip_table get_proxy_ip true => 10.0.0.2 8888
+table_add proxy_ip_table get_proxy_ip 1 => 10.0.0.2 8888

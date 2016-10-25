@@ -56,6 +56,9 @@ reroute packets to the proxy.
   * Finished writing code for tag detection and rerouting in P4
   * Write client code to encode tag in SYN SEQ number
   * Issues while debugging. Next step is finding this bug (error using P4 CLI)
+* (10/25) Debuggin tag detection
+  * Fixed problems from 10/22. That is, p4 code executes and ARP queries work
+again. Tag not getting detected though.
 
 Design Decisions
 ================

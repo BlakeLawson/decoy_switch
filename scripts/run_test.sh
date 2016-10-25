@@ -27,3 +27,7 @@ sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python $TOP_DIR/scripts/topo.py 
     --mininet-cli \
     --verbose \
     --p4-commands $TOP_DIR/p4src/commands.txt
+
+# Get mininet log files
+mv /tmp/p4s.* $TOP_DIR/log/
+mv $TOP_DIR/*.pcap $TOP_DIR/log/
