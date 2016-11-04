@@ -40,7 +40,7 @@ numbers.
 environment. Not clear why P4 program not executing correctly.
 
 Week 10/19 - 10/25
--------------------------
+------------------
 * Replace explicit client code with P4 program that overwrites OS seq number
 with custom, decoy switch seq.
 
@@ -59,6 +59,18 @@ reroute packets to the proxy.
 * (10/25) Debuggin tag detection
   * Fixed problems from 10/22. That is, p4 code executes and ARP queries work
 again. Tag not getting detected though.
+
+Week 10/26 - 11/8
+-----------------
+* (11/3) Tag detection
+  * Determined that tag detection was not working because the implementation of
+`modify_field_with_hash_based_offset` was incorrect in the virtual switch
+provided in the P4 Github repo.
+  * Fixed bug in implementation of `modify_field_with_hash_based_offset` and
+pushed change upstream.
+* (11/4) Tag detection
+  * After debugging the tag calculation in the client-side Go code, decided
+it is not worth the time. Transitioning to writing P4 client instead.
 
 Design Decisions
 ================

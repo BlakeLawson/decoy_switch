@@ -103,7 +103,6 @@ control arp_ingress {
 /* TCP Tagging, etc. */
 
 action check_tag() {
-  // set_field_to_hash_index(decoy_metadata.tag, tag_hash, 0, 0);
   modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0);
 }
 

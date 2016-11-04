@@ -50,9 +50,12 @@ class TestTopo(Topo):
         self.addHost('decoy_dst', ip='10.0.0.3', mac='00:00:00:00:00:03')
         self.addHost('covert_dst', ip='10.0.0.4', mac='00:00:00:00:00:04')
 
+        if _verbose:
+            sw_path += ' --log-console'
+
         self.addSwitch(
                 's1',
-                sw_path=sw_path + ' --log-console',
+                sw_path=sw_path,
                 json_path=json_path,
                 thrift_port=_THRIFT_BASE_PORT,
                 pcap_dump=True,
@@ -125,6 +128,7 @@ def main(args):
     init_hosts(net)
     init_switches(net, p4_cli_path=args.p4_cli, p4_json_path=args.json, 
                  commands_path=args.p4_commands)
+    sleep(1)
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
