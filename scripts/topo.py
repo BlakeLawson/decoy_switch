@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+#
 # Blake Lawson (blawson@princeton.edu)
 # Adviser: Jennifer Rexford
 
@@ -43,7 +43,7 @@ class TestTopo(Topo):
     sw_path: string path to P4 behavioral exe
     json_path: string path to P4 configuration
     '''
-    def __init__(self, sw_path, json_path):
+    def __init__(self, sw_path, switch_json_path, client_json_path):
         super(TestTopo, self).__init__()
         self.addHost('client', ip='10.0.0.1', mac='00:00:00:00:00:01')
         self.addHost('proxy', ip='10.0.0.2', mac='00:00:00:00:00:02')
@@ -53,15 +53,26 @@ class TestTopo(Topo):
         if _verbose:
             sw_path += ' --log-console'
 
+        # Decoy switch
         self.addSwitch(
                 's1',
                 sw_path=sw_path,
-                json_path=json_path,
+                json_path=switch_json_path,
                 thrift_port=_THRIFT_BASE_PORT,
                 pcap_dump=True,
                 verbose=True)
 
-        self.addLink('s1', 'client')
+        # Client-side switch
+        self.addSwitch(
+                's2',
+                sw_path=sw_path,
+                json_path=client_json_path,
+                thrift_port=_THRIFT_BASE_PORT + 1,
+                pcap_dump=True,
+                verbose=True)
+
+        self.addLink('s2', 'client')
+        self.addLink('s1', 's2')
         self.addLink('s1', 'proxy')
         self.addLink('s1', 'decoy_dst')
         self.addLink('s1', 'covert_dst')
@@ -72,27 +83,30 @@ def init_hosts(net):
         h.cmd('export GOPATH="/home/blake/Documents/code/"')
 
 
-def init_switches(net, p4_cli_path, p4_json_path, commands_path):
+def init_switches(switches, p4_cli_path, p4_json_paths, commands_paths):
     '''
     Iterate through switches in the mininet topology and initialize them with
-    the commands in p4src/commands.txt.
+    the commands in p4src/tag_commands.txt.
 
-    net: Mininet object
-    p4_cli_path: string path to the p4 cli executable
-    p4_json_path: string path to the p4 json configuration file
-    commands_path: string path to commands.txt file used to initialize the
-        p4 switch
+    switches: List of switches in the Mininet topology.
+    p4_cli_path: String path to the p4 cli executable.
+    p4_json_paths: List of string paths to the p4 json configuration files for
+        each of the switches in switches.
+    commands_paths: List of string paths to commands.txt files for each of the
+        switches in switches. Used to initialize the p4 switch.
     '''
-    for i in range(len(net.switches)):
-        cmd = [p4_cli_path, '--json', p4_json_path, '--thrift-port',
+    assert len(switches) == len(p4_json_paths)
+    assert len(p4_json_paths) == len(commands_paths)
+    for i in range(len(switches)):
+        cmd = [p4_cli_path, '--json', p4_json_paths[i], '--thrift-port',
                str(_THRIFT_BASE_PORT + i)]
-        with open(commands_path, 'r') as f:
-            vprintf('Running %s on switch %s\n' %  (' '.join(cmd), net.switches[i].name))
+        with open(commands_paths[i], 'r') as f:
+            vprintf('Running %s on switch %s\n' %  (' '.join(cmd), switches[i].name))
             try:
                 output = subprocess.check_output(cmd, stdin=f)
                 vprintf(output)
             except subprocess.CalledProcessError as e:
-                vprintf('Failed to initialize switch %s\n' % net.switches[i].name)
+                vprintf('Failed to initialize switch %s\n' % switches[i].name)
                 print e
                 print e.output
 
@@ -105,12 +119,17 @@ def make_argparse():
                         help='Run mininet CLI after test', required=False)
     parser.add_argument('--behavioral-exe', action='store', type=str,
                         help='Path to P4 behavioral executable', required=True)
-    parser.add_argument('--json', action='store', type=str,
+    parser.add_argument('--switch-json', action='store', type=str,
                         help='Path to P4 JSON config file', required=True)
     parser.add_argument('--p4-cli', action='store', type=str,
                         help='Path to BM CLI', required=True)
-    parser.add_argument('--p4-commands', action='store', type=str,
+    parser.add_argument('--switch-commands', action='store', type=str,
                         help='Path to P4 commands.txt init file', required=True)
+    parser.add_argument('--client-commands', action='store', type=str,
+                        help='Path to init file for P4 client', required=True)
+    parser.add_argument('--client-json', action='store', type=str,
+                        help='Path to P4 JSON config file for the client switch',
+                        required=True)
     return parser
 
 
@@ -119,15 +138,19 @@ def main(args):
         setLogLevel('info')
 
     vprint('Starting test')
-    topo = TestTopo(sw_path=args.behavioral_exe, json_path=args.json)
+    topo = TestTopo(sw_path=args.behavioral_exe,
+                    switch_json_path=args.switch_json,
+                    client_json_path=args.client_json)
     vprint('Initialized topo')
     net = Mininet(topo=topo, host=P4Host, switch=P4Switch, controller=None)
 
     vprint('Starting mininet')
     net.start()
     init_hosts(net)
-    init_switches(net, p4_cli_path=args.p4_cli, p4_json_path=args.json, 
-                 commands_path=args.p4_commands)
+    init_switches(net.switches,
+                  p4_cli_path=args.p4_cli,
+                  p4_json_paths=[args.switch_json, args.client_json],
+                  commands_paths=[args.switch_commands, args.client_commands])
     sleep(1)
     vprint('mininet started')
 

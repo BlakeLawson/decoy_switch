@@ -2,8 +2,8 @@
  * Author: Blake Lawson (blawson@princeton.edu)
  * Adviser: Jennifer Rexford
  *
- * Initial code from https://github.com/p4lang/tutorials/blob/master
- * /SIGCOMM_2016/heavy_hitter/p4src/includes/headers.p4
+ * Initial code from https://github.com/p4lang/tutorials/blob/master/
+ * SIGCOMM_2016/heavy_hitter/p4src/includes/headers.p4
  */
 
 header_type ethernet_t {

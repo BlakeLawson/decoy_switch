@@ -71,6 +71,7 @@ pushed change upstream.
 * (11/4) Tag detection
   * After debugging the tag calculation in the client-side Go code, decided
 it is not worth the time. Transitioning to writing P4 client instead.
+  * Successfully tagging packets in P4 and detecting tag at decoy switch.
 
 Design Decisions
 ================
@@ -109,6 +110,7 @@ and ip.
 
 TODO List
 =========
+* Migrate P4 ARP query code to separate module.
 * Migrate custom TCP handshake code from client.go to a separate TCP library.
 * Investigate value for initial TCP congestion window
 * Swap current p4 code with learning switch at https://github.com/p4lang/switch
