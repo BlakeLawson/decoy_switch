@@ -126,4 +126,10 @@ func Start() {
   if err != nil {
     log.Fatalf("Handshake: %s\n", err)
   }
+
+  // conn, err := net.Dial("tcp", "10.0.0.3:80")
+  // if err != nil {
+  //   log.Fatalf("Dial: %s\n", err)
+  // }
+  // conn.Close()
 }

@@ -102,25 +102,30 @@ control arp_ingress {
 
 /* TCP Tagging, etc. */
 
-action check_tag() {
-  modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0);
+
+action do_calculate_tag() {
+  // 0x100000000 == 2^32
+  modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0x100000000);
 }
 
 // Determine whether packet contains tag
-table check_tag_table {
+table calculate_tag {
   actions {
-    check_tag;
+    do_calculate_tag;
   }
-  size: 1;
+  size: 0;
 }
 
-action get_proxy_ip(ipAddr, port) {
+action send_to_proxy(ipAddr, port) {
   // Save the proxy ip address
   modify_field(decoy_metadata.proxyIp, ipAddr);
 
   // Prepare packet for forwarding to proxy
   modify_field(ipv4.dstAddr, ipAddr);
   modify_field(tcp.dstPort, port);
+
+  // Get ride of cpu header
+  remove_header(cpu_header);
 }
 
 // Gets the ip addr of the decoy proxy
@@ -129,19 +134,90 @@ table proxy_ip_table {
     decoy_metadata.tag: valid;
   }
   actions {
-    get_proxy_ip;
+    send_to_proxy;
     _no_op;
   }
   size: 1;
 }
 
-control tcp_ingress {
-  if (tcp.ctrl == TCP_FLAG_SYN) {
-    apply(check_tag_table);
-    if (decoy_metadata.tag == tcp.seqNo) {
-      apply(proxy_ip_table);
-    }
+#define CPU_MIRROR_SESSION_ID 250
+
+field_list copy_to_cpu_fields {
+  standard_metadata;
+}
+
+action do_record_flow() {
+  clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
+
+  // Drop the packet. It will be sent once the controller is done
+  modify_field(routing_metadata.do_route, FALSE);
+  drop();
+}
+
+// Tag the flow
+table record_flow {
+  actions {
+    do_record_flow;
   }
+  size: 0;
+}
+
+// Update the packet's dest ip and port so it's from the covert dst
+action hide_dst(covert_addr, covert_port) {
+  modify_field(ipv4.srcAddr, covert_addr);
+  modify_field(tcp.srcPort, covert_port);
+}
+
+table check_tag {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+  }
+  actions {
+    send_to_proxy;
+    hide_dst;
+    _no_op;
+  }
+  size: 256;
+}
+
+control tcp_ingress {
+  if (tcp.flags == TCP_FLAG_SYN) {
+    apply(calculate_tag);
+    if (decoy_metadata.tag == tcp.seqNo) {
+      if (cpu_metadata.from_cpu == FALSE) {
+        // Send to CPU to mark flow
+        apply(record_flow);
+      } else {
+        apply(proxy_ip_table);
+      }
+    }
+  } else {
+    // TODO: Check decoy tag table here...
+    // General logic here... If the packet is on its way back from decoy
+    // dst, need to restore the covert destination. If the packet is on its
+    // way out and the packet is in the tagged table, change the covert
+    // destination to the decoy proxy.
+
+    // Check whether the packet is in a tagged flow
+    apply(check_tag);
+  }
+}
+
+table debug {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+    standard_metadata.instance_type: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 1;
 }
 
 
@@ -149,12 +225,13 @@ control tcp_ingress {
 
 control ingress {
   if (valid(tcp)) {
+    apply(debug);
     tcp_ingress();
   }
   if (valid(arp)) {
     arp_ingress();
   }
-  if (valid(ipv4)) {
+  if (valid(ipv4) and routing_metadata.do_route == TRUE) {
     ipv4_ingress();
   }
 }
@@ -176,6 +253,27 @@ table send_frame {
   size: 256;
 }
 
+action do_cpu_encap() {
+  add_header(cpu_header);
+  modify_field(cpu_header.preamble, 0);
+  modify_field(cpu_header.device, 0);
+  modify_field(cpu_header.reason, 0xab); // Meaningless right now
+  modify_field(cpu_header.if_index, cpu_metadata.if_index);
+}
+
+table send_to_cpu {
+  actions {
+    do_cpu_encap;
+  }
+  size: 0;
+}
+
 control egress {
-  apply(send_frame);
+  if (standard_metadata.instance_type == 0) {
+    // Regular packet ready to send
+    apply(send_frame);
+  } else {
+    // CPU packet
+    apply(send_to_cpu);
+  }
 }

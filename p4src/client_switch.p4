@@ -20,18 +20,19 @@ action _drop() {
 /* INGRESS */
 
 action set_tag() {
-  modify_field_with_hash_based_offset(tcp.seqNo, 0, tag_hash, 0);
+  // 0x100000000 == 2^32
+  modify_field_with_hash_based_offset(tcp.seqNo, 0, tag_hash, 0x100000000);
 }
 
 table set_tag_table {
   actions {
     set_tag;
   }
-  size: 1;
+  size: 0;
 }
 
 control tcp_ingress {
-  if (tcp.ctrl == TCP_FLAG_SYN) {
+  if (tcp.flags == TCP_FLAG_SYN) {
     apply(set_tag_table);
   }
 }
@@ -48,14 +49,14 @@ table send_to_world {
   actions {
     send_to_world;
   }
-  size: 1;
+  size: 0;
 }
 
 table send_to_client {
   actions {
     send_to_client;
   }
-  size: 1;
+  size: 0;
 }
 
 control set_egress {

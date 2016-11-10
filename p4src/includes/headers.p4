@@ -54,11 +54,19 @@ header_type tcp_t {
     seqNo : 32;
     ackNo : 32;
     dataOffset : 4;
-    res : 3;
-    ecn : 3;
-    ctrl : 6;
+    res : 4;
+    flags : 8;
     window : 16;
     checksum : 16;
     urgentPtr : 16;
+  }
+}
+
+header_type cpu_header_t {
+  fields {
+    preamble: 64;
+    device: 8;
+    reason: 8;
+    if_index: 8;
   }
 }

@@ -7,7 +7,13 @@
  */
 
 parser start {
-  return parse_ethernet;
+  set_metadata(cpu_metadata.if_index, standard_metadata.ingress_port);
+  set_metadata(cpu_metadata.from_cpu, FALSE);
+  set_metadata(routing_metadata.do_route, TRUE);
+  return select(current(0, 64)) {
+    0: parse_cpu_header;
+    default: parse_ethernet;
+  }
 }
 
 header ethernet_t ethernet;
@@ -28,6 +34,15 @@ parser parse_arp {
   return ingress;
 }
 
+header cpu_header_t cpu_header;
+
+parser parse_cpu_header {
+  extract(cpu_header);
+  set_metadata(cpu_metadata.if_index, cpu_header.if_index);
+  set_metadata(cpu_metadata.from_cpu, TRUE);
+  return parse_ethernet;
+}
+
 header ipv4_t ipv4;
 
 parser parse_ipv4 {
@@ -42,5 +57,6 @@ header tcp_t tcp;
 
 parser parse_tcp {
   extract(tcp);
+  set_metadata(tcp_metadata.tcpLength, ipv4.totalLen - 20);
   return ingress;
 }

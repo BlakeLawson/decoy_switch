@@ -34,6 +34,39 @@ calculated_field ipv4.hdrChecksum {
   update ipv4_checksum if (valid(ipv4));
 }
 
+/* TCP Checksum */
+
+field_list tcp_checksum_list {
+  ipv4.srcAddr;
+  ipv4.dstAddr;
+  8'0;
+  ipv4.protocol;
+  tcp_metadata.tcpLength;
+  tcp.srcPort;
+  tcp.dstPort;
+  tcp.seqNo;
+  tcp.ackNo;
+  tcp.dataOffset;
+  tcp.res;
+  tcp.flags;
+  tcp.window;
+  tcp.urgentPtr;
+  payload;
+}
+
+field_list_calculation tcp_checksum {
+  input {
+    tcp_checksum_list;
+  }
+  algorithm: csum16;
+  output_width: 16;
+}
+
+calculated_field tcp.checksum {
+  verify tcp_checksum if(valid(tcp));
+  update tcp_checksum if(valid(tcp));
+}
+
 /* Bloom filter hash functions */
 
 /* Use 5-tuple to identify flows */
@@ -76,7 +109,7 @@ field_list_calculation bloom_hash3 {
 field_list tag_fields {
   ipv4.srcAddr;
   ipv4.dstAddr;
-  // ipv4.protocol;
+  ipv4.protocol;
   tcp.srcPort;
   tcp.dstPort;
   tcp.window;

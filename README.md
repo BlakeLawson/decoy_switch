@@ -56,8 +56,8 @@ reroute packets to the proxy.
   * Finished writing code for tag detection and rerouting in P4
   * Write client code to encode tag in SYN SEQ number
   * Issues while debugging. Next step is finding this bug (error using P4 CLI)
-* (10/25) Debuggin tag detection
-  * Fixed problems from 10/22. That is, p4 code executes and ARP queries work
+* (10/25) Debugging tag detection
+  * Fixed problems from 10/22. That is, P4 code executes and ARP queries work
 again. Tag not getting detected though.
 
 Week 10/26 - 11/8
@@ -72,6 +72,31 @@ pushed change upstream.
   * After debugging the tag calculation in the client-side Go code, decided
 it is not worth the time. Transitioning to writing P4 client instead.
   * Successfully tagging packets in P4 and detecting tag at decoy switch.
+* (11/6) Marking flows in P4
+  * Realized that the old plan to use bloom filters alone to tag flows for
+decoy switching was too simplistic because it did not provide a way to send
+packets to the client that include the covert destination.
+  * Researched how to offload processing to a controller using the example
+P4 NAT and the basic CPU offloading example.
+  * Wrote code to configure test environment for CPU offloading.
+  * Also fixed a bug in my pull request to the P4 CLI repo (bmv2).
+* (11/7) Started writing CPU offloading code in `tag_detection.p4`.
+* (11/8) Continued writing CPU offloading in `tag_detection.p4` and started
+testing.
+  * Switch controller properly receiving packets. Rules not do not seem to
+install properly because the overall program is not working as expected.
+
+Week 11/9 - 11/16
+-----------------
+Goals: End-to-end tag detection. Reread papers and make detailed plan for decoy
+switch system that specifically includes how the client communicates the covert
+destination to decoy switch.
+
+* (11/10) CPU offloading debugging
+  * CPU offloading working correctly. Able to send tagged request from client
+to decoy destination. Decoy switch detects and sends to proxy. Proxy response
+goes back to client.
+
 
 Design Decisions
 ================

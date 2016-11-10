@@ -1,17 +1,18 @@
 #!/usr/bin/python
-#
-# Blake Lawson (blawson@princeton.edu)
-# Adviser: Jennifer Rexford
+'''
+Blake Lawson (blawson@princeton.edu)
+Adviser: Jennifer Rexford
+
+Configure mininet topology and run test code on client.
+'''
 
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import CPULimitedHost
-from mininet.node import OVSController
 from mininet.topo import Topo
+from mininet.link import Intf
 
-from p4_mininet import P4Host
-from p4_mininet import P4Switch
+from p4_mininet import P4Host, P4Switch
 
 from time import sleep
 
@@ -98,24 +99,25 @@ def init_switches(switches, p4_cli_path, p4_json_paths, commands_paths):
     assert len(switches) == len(p4_json_paths)
     assert len(p4_json_paths) == len(commands_paths)
     for i in range(len(switches)):
-        cmd = [p4_cli_path, '--json', p4_json_paths[i], '--thrift-port',
-               str(_THRIFT_BASE_PORT + i)]
+        # cmd = [p4_cli_path, '--json', p4_json_paths[i], '--thrift-port',
+        cmd = [p4_cli_path, p4_json_paths[i], str(_THRIFT_BASE_PORT + i)]
         with open(commands_paths[i], 'r') as f:
-            vprintf('Running %s on switch %s\n' %  (' '.join(cmd), switches[i].name))
+            vprintf('Running %s on switch %s\n' %
+                    (' '.join(cmd), switches[i].name))
             try:
                 output = subprocess.check_output(cmd, stdin=f)
                 vprintf(output)
             except subprocess.CalledProcessError as e:
                 vprintf('Failed to initialize switch %s\n' % switches[i].name)
-                print e
-                print e.output
+                print(e)
+                print(e.output)
 
 
 def make_argparse():
-    parser = argparse.ArgumentParser(description='Create mininet topology and ' +
-            'run test.')
+    parser = argparse.ArgumentParser(description='Create mininet topology ' +
+                                     'and run test.')
     parser.add_argument('-v', '--verbose', action='store_true', required=False)
-    parser.add_argument('--mininet-cli',  action='store_true', 
+    parser.add_argument('--mininet-cli',  action='store_true',
                         help='Run mininet CLI after test', required=False)
     parser.add_argument('--behavioral-exe', action='store', type=str,
                         help='Path to P4 behavioral executable', required=True)
@@ -124,11 +126,13 @@ def make_argparse():
     parser.add_argument('--p4-cli', action='store', type=str,
                         help='Path to BM CLI', required=True)
     parser.add_argument('--switch-commands', action='store', type=str,
-                        help='Path to P4 commands.txt init file', required=True)
+                        help='Path to P4 commands.txt init file',
+                        required=True)
     parser.add_argument('--client-commands', action='store', type=str,
                         help='Path to init file for P4 client', required=True)
     parser.add_argument('--client-json', action='store', type=str,
-                        help='Path to P4 JSON config file for the client switch',
+                        help='Path to P4 JSON config file for the ' +
+                        'client switch',
                         required=True)
     return parser
 
@@ -144,6 +148,9 @@ def main(args):
     vprint('Initialized topo')
     net = Mininet(topo=topo, host=P4Host, switch=P4Switch, controller=None)
 
+    # Configure CPU offloading
+    Intf('cpu-veth-1', net.get('s1'), 11)
+
     vprint('Starting mininet')
     net.start()
     init_hosts(net)
@@ -155,17 +162,23 @@ def main(args):
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
-    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap &> /dev/null &')
+    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap ' +
+              '&> /dev/null &')
     proxy.cmd('go run src/main/proxy.go &> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy_dst')
+    decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy_tcp.pcap ' +
+              '&> /dev/null &')
     decoy.cmd('go run src/main/server.go &> log/decoy.log &')
 
     covert = net.getNodeByName('covert_dst')
+    covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert_tcp.pcap ' +
+               '&> /dev/null &')
     covert.cmd('go run src/main/server.go &> log/covert.log &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap &> /dev/null &')
+    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap ' +
+               '&> /dev/null &')
     client.cmd('go run src/main/client.go &> log/client.log &')
 
     sleep(2)
