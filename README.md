@@ -86,7 +86,7 @@ testing.
   * Switch controller properly receiving packets. Rules not do not seem to
 install properly because the overall program is not working as expected.
 
-Week 11/9 - 11/16
+Week 11/9 - 11/15
 -----------------
 Goals: End-to-end tag detection. Reread papers and make detailed plan for decoy
 switch system that specifically includes how the client communicates the covert
@@ -96,6 +96,17 @@ destination to decoy switch.
   * CPU offloading working correctly. Able to send tagged request from client
 to decoy destination. Decoy switch detects and sends to proxy. Proxy response
 goes back to client.
+  * Started designing specifics of connection hijack and how to communicate
+covert destination.
+  * Started writing client switch code to remap sequence numbers after tagging.
+* (11/11) Finished writing client code to remap sequence numbers after tagging.
+Almost done debugging.
+* (11/14) Project planning
+  * Reread Cirripede, decoy routing, and Telex to review the way that they do
+tagging and communicate the covert destination to the anticensorship system.
+  * Decided to use same assumptions as decoy routing. That is, assume that the
+client and decoy proxy share a secret key ahead of time and have decoy switch
+hijack TCP connection after TLS handshake completes.
 
 
 Design Decisions
@@ -133,9 +144,35 @@ the target host that the sender is trying to query that gives the target's mac
 and ip.
 
 
+Connect Hijacking and Covert Destinations
+-----------------------------------------
+(11/14) After rereading anticensorship papers, determined that most of those
+systems use the TLS ClientHello random field to convey information to request
+use of system and information for key generation. Rather then dealing with
+modifications to OpenSSL or other TLS libraries, decided to use TCP seq number
+to request use of decoy switching system with the understanding that this can
+be improved in the future.
+
+Also decided to use assume that the client and the decoy switch share a secret
+key ahead of time, which is the same assumption that the decoy routing paper
+makes. This simplified the initial configuration, and as with tagging, it is
+something that can be improved down the road.
+
+To communicate the covert destination, the plan is to hijack the connection to
+the decoy destination once the TLS handshake completes and switch to using the
+shared secret key (will likely need some modification to TLS library to do
+this). Once connection established and encrypted using shared key, client is
+free to initiate HTTPS proxy protocol or SOCKS proxy protocol to connect to the
+covert destination using the decoy switch as a proxy.
+
+
 TODO List
 =========
 * Migrate P4 ARP query code to separate module.
-* Migrate custom TCP handshake code from client.go to a separate TCP library.
-* Investigate value for initial TCP congestion window
-* Swap current p4 code with learning switch at https://github.com/p4lang/switch
+* Finish debugging connection through client switch
+* Add logic to decoy switch to detect end of TLS handshake and hijack
+connection. To do this, it will be necessary to move some of the logic to the
+controller for the TLS stuff.
+* Modify client so it can switch to use the shared secret key after the decoy
+switch hijacks the connection.
+* Generate the shared switch.
