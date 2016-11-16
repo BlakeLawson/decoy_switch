@@ -67,42 +67,6 @@ calculated_field tcp.checksum {
   update tcp_checksum if(valid(tcp));
 }
 
-/* Bloom filter hash functions */
-
-/* Use 5-tuple to identify flows */
-field_list bloom_fields {
-  ipv4.srcAddr;
-  ipv4.dstAddr;
-  ipv4.protocol;
-  tcp.srcPort;
-  tcp.dstPort;
-}
-
-field_list_calculation bloom_hash1 {
-  input {
-    bloom_fields;
-  }
-  algorithm : csum16;
-  output_width : 16;
-}
-
-field_list_calculation bloom_hash2 {
-  input {
-    bloom_fields;
-  }
-  algorithm : crc16;
-  output_width : 16;
-}
-
-// TODO: Is xor worth using?
-field_list_calculation bloom_hash3 {
-  input {
-    bloom_fields;
-  }
-  algorithm : xor16;
-  output_width : 16;
-}
-
 /* Tag hash */
 
 // TODO: Make this more legit. Ideally include some key on disk in the hash.

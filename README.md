@@ -108,6 +108,10 @@ tagging and communicate the covert destination to the anticensorship system.
 client and decoy proxy share a secret key ahead of time and have decoy switch
 hijack TCP connection after TLS handshake completes.
 
+Week 11/16 - 11/22
+------------------
+* (11/16) Finished debugging client seqNo/ackNo remapping.
+
 
 Design Decisions
 ================

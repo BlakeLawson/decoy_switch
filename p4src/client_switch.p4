@@ -13,15 +13,45 @@
 #define CLIENT_PORT 1
 #define WORLD_PORT  2
 
+#define CPU_MIRROR_SESSION_ID 251
+
 action _drop() {
   drop();
 }
 
+action _no_op() {
+  no_op();
+}
+
+table debug {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+    tcp.seqNo: exact;
+    tcp.ackNo: exact;
+    decoy_metadata.tag: exact;
+    standard_metadata.instance_type: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 0;
+}
+
 /* INGRESS */
+
+field_list copy_to_cpu_fields {
+  standard_metadata;
+  decoy_metadata;
+}
 
 action set_tag() {
   // 0x100000000 == 2^32
-  modify_field_with_hash_based_offset(tcp.seqNo, 0, tag_hash, 0x100000000);
+  modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0x100000000);
+  modify_field(tcp.seqNo, decoy_metadata.tag);
+  clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
 }
 
 table set_tag_table {
@@ -31,9 +61,36 @@ table set_tag_table {
   size: 0;
 }
 
+action outbound(seq_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo + seq_diff);
+}
+
+action inbound(seq_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo - seq_diff);
+}
+
+table tag_offset {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+  }
+  actions {
+    outbound;
+    inbound;
+    _no_op;
+  }
+  size: 256;
+}
+
 control tcp_ingress {
   if (tcp.flags == TCP_FLAG_SYN) {
+    // Mark and send to controller to update tables
     apply(set_tag_table);
+  } else {
+    // Lookup in table and do some stuff
+    apply(tag_offset);
   }
 }
 
@@ -102,10 +159,10 @@ control arp_ingress {
 }
 
 control ingress {
+  set_egress();
   if (valid(tcp)) {
     tcp_ingress();
   }
-  set_egress();
   if (valid(arp)) {
     arp_ingress();
   }
@@ -113,5 +170,26 @@ control ingress {
 
 /* EGRESS */
 
+action do_cpu_encap() {
+  add_header(client_cpu_header);
+  add_header(cpu_header);
+  modify_field(cpu_header.preamble, 0);
+  modify_field(cpu_header.reason, 0xab);
+  modify_field(client_cpu_header.preamble, 0);
+  modify_field(client_cpu_header.tag_value, decoy_metadata.tag);
+}
+
+table send_to_cpu {
+  actions {
+    do_cpu_encap;
+  }
+  size: 0;
+}
+
 control egress {
+  // apply(debug);
+  if (standard_metadata.instance_type != 0) {
+    // Packet to controller
+    apply(send_to_cpu);
+  }
 }

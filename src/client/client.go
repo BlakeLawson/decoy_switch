@@ -116,20 +116,20 @@ func doHandshake(conn net.Conn) error {
 }
 
 func Start() {
-  conn, err := net.Dial("ip4:tcp", decoyDst)
-  if err != nil {
-    log.Fatalf("Dial: %s\n", err)
-  }
-  defer conn.Close()
-
-  err = doHandshake(conn)
-  if err != nil {
-    log.Fatalf("Handshake: %s\n", err)
-  }
-
-  // conn, err := net.Dial("tcp", "10.0.0.3:80")
+  // conn, err := net.Dial("ip4:tcp", decoyDst)
   // if err != nil {
   //   log.Fatalf("Dial: %s\n", err)
   // }
-  // conn.Close()
+  // defer conn.Close()
+
+  // err = doHandshake(conn)
+  // if err != nil {
+  //   log.Fatalf("Handshake: %s\n", err)
+  // }
+
+  conn, err := net.Dial("tcp", "10.0.0.3:80")
+  if err != nil {
+    log.Fatalf("Dial: %s\n", err)
+  }
+  conn.Close()
 }

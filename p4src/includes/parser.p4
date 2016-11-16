@@ -7,7 +7,6 @@
  */
 
 parser start {
-  set_metadata(cpu_metadata.if_index, standard_metadata.ingress_port);
   set_metadata(cpu_metadata.from_cpu, FALSE);
   set_metadata(routing_metadata.do_route, TRUE);
   return select(current(0, 64)) {
@@ -38,8 +37,17 @@ header cpu_header_t cpu_header;
 
 parser parse_cpu_header {
   extract(cpu_header);
-  set_metadata(cpu_metadata.if_index, cpu_header.if_index);
   set_metadata(cpu_metadata.from_cpu, TRUE);
+  return select(current(0, 64)) {
+    0: parse_client_cpu_header;
+    default: parse_ethernet;
+  }
+}
+
+header client_cpu_header_t client_cpu_header;
+
+parser parse_client_cpu_header {
+  extract(client_cpu_header);
   return parse_ethernet;
 }
 

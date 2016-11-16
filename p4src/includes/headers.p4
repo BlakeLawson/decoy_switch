@@ -65,8 +65,13 @@ header_type tcp_t {
 header_type cpu_header_t {
   fields {
     preamble: 64;
-    device: 8;
     reason: 8;
-    if_index: 8;
+  }
+}
+
+header_type client_cpu_header_t {
+  fields {
+    preamble: 64;
+    tag_value: 32;
   }
 }

@@ -35,8 +35,6 @@ metadata decoy_metadata_t decoy_metadata;
 /* Metadata for CPU offloading */
 header_type cpu_metadata_t {
   fields {
-    do_forward : 1;
-    if_index : 8;
     from_cpu : 1;
   }
 }

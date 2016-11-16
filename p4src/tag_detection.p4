@@ -256,9 +256,7 @@ table send_frame {
 action do_cpu_encap() {
   add_header(cpu_header);
   modify_field(cpu_header.preamble, 0);
-  modify_field(cpu_header.device, 0);
   modify_field(cpu_header.reason, 0xab); // Meaningless right now
-  modify_field(cpu_header.if_index, cpu_metadata.if_index);
 }
 
 table send_to_cpu {

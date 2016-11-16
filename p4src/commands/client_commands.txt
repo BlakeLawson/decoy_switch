@@ -6,3 +6,6 @@ table_add arp_resp_lookup set_arp_resp 10.0.0.1 => 00:00:00:00:00:01
 table_add arp_resp_lookup set_arp_resp 10.0.0.2 => 00:00:00:00:00:02
 table_add arp_resp_lookup set_arp_resp 10.0.0.3 => 00:00:00:00:00:03
 table_add arp_resp_lookup set_arp_resp 10.0.0.4 => 00:00:00:00:00:04
+table_set_default send_to_cpu do_cpu_encap
+mirroring_add 251 12
+table_set_default tag_offset _no_op

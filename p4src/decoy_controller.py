@@ -26,6 +26,8 @@ parser.add_argument('--proxy-addr', action='store', type=str, required=True,
                     help='Decoy proxy IP address.')
 parser.add_argument('--proxy-port', action='store', type=str, required=True,
                     help='Decoy proxy port.')
+parser.add_argument('--interface', action='store', type=str, required=True,
+                    help='Interface to send and receive packets.')
 parser.add_argument('-v', '--verbose', action='store_true', required=False)
 args = parser.parse_args()
 
@@ -92,17 +94,15 @@ def process_cpu_packet(packet):
     # Validate packet
     p_str = str(packet)
     # 0-7 : preamble
-    # 8   : device
-    # 9   : reason
-    # 10  : iface
-    # 11- : data packet (TCP)
-    if p_str[:8] != '\x00' * 8 or p_str[8] != '\x00' or p_str[9] != '\xab':
+    # 8   : reason
+    # 9-  : data packet (TCP)
+    if p_str[:8] != '\x00' * 8 or p_str[8] != '\xab':
         return
 
     ip_hdr = None
     tcp_hdr = None
     try:
-        p = Ether(p_str[11:])
+        p = Ether(p_str[9:])
         ip_hdr = p['IP']
         tcp_hdr = p['TCP']
     except Exception as e:
@@ -121,15 +121,15 @@ def process_cpu_packet(packet):
 
     # Send packet back to switch. Use hachy solution to avoid reprocessing
     # this packet.
-    new_p = p_str[:9] + '\xac' + p_str[10:]
-    sendp(new_p, iface='cpu-veth-0', verbose=args.verbose)
+    new_p = p_str[:8] + '\xac' + p_str[9:]
+    sendp(new_p, iface=args.interface, verbose=args.verbose)
 
 
 def main():
     '''
     Get packets from the switch.
     '''
-    sniff(iface='cpu-veth-0', prn=lambda x: process_cpu_packet(x))
+    sniff(iface=args.interface, prn=lambda x: process_cpu_packet(x))
 
 
 if __name__ == '__main__':

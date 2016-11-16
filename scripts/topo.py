@@ -150,6 +150,7 @@ def main(args):
 
     # Configure CPU offloading
     Intf('cpu-veth-1', net.get('s1'), 11)
+    Intf('cpu-veth-3', net.get('s2'), 12)
 
     vprint('Starting mininet')
     net.start()
@@ -186,7 +187,12 @@ def main(args):
         CLI(net)
 
     vprint('Shutting down')
-    net.stop()
+
+    # Suppress mininet exception message
+    try:
+        net.stop()
+    except:
+        vprint('')
 
 
 if __name__ == '__main__':
