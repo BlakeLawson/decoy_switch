@@ -4,36 +4,38 @@
 package server
 
 import (
-  "log"
-  "net"
+	"log"
+	"net/http"
+	"time"
 )
 
 // port is the TCP port that the server listens on.
-const port string = ":8888"
+const (
+	port           string        = ":8080"
+	defaultTimeout time.Duration = 5 // seconds
+)
 
-// handleRequest serves client requests.
-func handleRequest(conn net.Conn) {
-  defer conn.Close()
+// Configure the server and server handlers. Takes filePath, which specifiies
+// the file to serve.
+func initServer(filePath string) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		// The "/" pattern matches everything
+		http.ServeFile(w, req, filePath)
+	})
 
-  log.Printf("request from %s\n", conn.RemoteAddr().String())
+	server := http.Server{
+		Addr:         port,
+		Handler:      mux,
+		ReadTimeout:  defaultTimeout * time.Second,
+		WriteTimeout: defaultTimeout * time.Second,
+	}
+
+	return &server
 }
 
-// main starts the proxy.
-func Start() {
-  l, err := net.Listen("tcp", port)
-  if err != nil {
-    log.Fatalln(err)
-  }
-  defer l.Close()
-  log.Printf("Listening on %s\n", l.Addr().String())
-
-  // Accept connections on l.
-  for {
-    conn, err := l.Accept()
-    if err != nil {
-      log.Println(err)
-      continue
-    }
-    go handleRequest(conn)
-  }
+// Start the server.
+func Start(filePath string) {
+	server := initServer(filePath)
+	log.Fatal(server.ListenAndServe())
 }

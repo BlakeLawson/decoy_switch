@@ -61,12 +61,20 @@ table set_tag_table {
   size: 0;
 }
 
-action outbound(seq_diff) {
+action pos_outbound(seq_diff) {
   modify_field(tcp.seqNo, tcp.seqNo + seq_diff);
 }
 
-action inbound(seq_diff) {
+action pos_inbound(seq_diff) {
   modify_field(tcp.ackNo, tcp.ackNo - seq_diff);
+}
+
+action neg_outbound(seq_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo - seq_diff);
+}
+
+action neg_inbound(seq_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo + seq_diff);
 }
 
 table tag_offset {
@@ -77,8 +85,10 @@ table tag_offset {
     tcp.dstPort: exact;
   }
   actions {
-    outbound;
-    inbound;
+    pos_outbound;
+    pos_inbound;
+    neg_outbound;
+    neg_inbound;
     _no_op;
   }
   size: 256;

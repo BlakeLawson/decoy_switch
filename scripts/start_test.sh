@@ -74,12 +74,12 @@ sudo python $TOP_DIR/p4src/client_controller.py \
 sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python $TOP_DIR/scripts/topo.py \
     --behavioral-exe $SWITCH_PATH \
     --p4-cli $CLI_PATH \
-    --mininet-cli \
-    --verbose \
     --switch-json $TOP_DIR/tag_detection.json \
     --switch-commands $TOP_DIR/p4src/commands/tag_commands.txt \
     --client-json $TOP_DIR/client_switch.json \
-    --client-commands $TOP_DIR/p4src/commands/client_commands.txt
+    --client-commands $TOP_DIR/p4src/commands/client_commands.txt \
+    --verbose \
+#    --mininet-cli
 
 # Get mininet log files
 mv /tmp/p4s.* $TOP_DIR/log/

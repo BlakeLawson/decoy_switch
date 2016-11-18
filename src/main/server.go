@@ -3,8 +3,19 @@
 
 package main
 
-import "server"
+import (
+	"flag"
+	"fmt"
+	"server"
+)
 
 func main() {
-  server.Start()
+	fname := flag.String("f", "", "Path to the file the server should serve.")
+	flag.Parse()
+	if *fname == "" {
+		fmt.Println("Must provide file to serve with -f option.")
+		return
+	}
+
+	server.Start(*fname)
 }

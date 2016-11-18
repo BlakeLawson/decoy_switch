@@ -52,15 +52,23 @@ def add_to_table(saddr, sport, daddr, dport, seq_diff):
     '''
     Given information about the packet, add it to the switch table.
     '''
-    outbound_cmd = 'table_add tag_offset outbound %s %s %s %s => %d'
-    inbound_cmd = 'table_add tag_offset inbound %s %s %s %s => %d'
+    vprintf('Adding %d as table offset value\n' % seq_diff)
+    sign = ''
+    if seq_diff > 0:
+        sign = 'pos'
+    else:
+        sign = 'neg'
+        seq_diff *= -1
+
+    outbound_cmd = 'table_add tag_offset %s_outbound %s %s %s %s => %d'
+    inbound_cmd = 'table_add tag_offset %s_inbound %s %s %s %s => %d'
 
     # In outbound case, src and dst are the same as the current packet
-    params = (saddr, sport, daddr, dport, seq_diff)
+    params = (sign, saddr, sport, daddr, dport, seq_diff)
     send_to_CLI(outbound_cmd % params)
 
     # In inbound case, src and dst are reversed
-    params = (daddr, dport, saddr, sport, seq_diff)
+    params = (sign, daddr, dport, saddr, sport, seq_diff)
     send_to_CLI(inbound_cmd % params)
 
 
@@ -96,7 +104,7 @@ def process_cpu_packet(packet):
         vprint('already saw packet')
         return
 
-    vprintf('initial seqNo: %x\ttag: %x\n' % (tcp_hdr.seq, tag))
+    vprintf('initial seqNo: %d\ttag: %d\n' % (tcp_hdr.seq, tag))
 
     diff = tag - tcp_hdr.seq
 

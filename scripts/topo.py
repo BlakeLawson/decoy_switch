@@ -165,24 +165,28 @@ def main(args):
     proxy = net.getNodeByName('proxy')
     proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap ' +
               '&> /dev/null &')
-    proxy.cmd('go run src/main/proxy.go &> log/proxy.log &')
+    proxy.cmd('go run src/main/proxy.go -port 8888 -file /dev/null ' +
+              '&> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy_dst')
     decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy_tcp.pcap ' +
               '&> /dev/null &')
-    decoy.cmd('go run src/main/server.go &> log/decoy.log &')
+    decoy.cmd('go run src/main/server.go -f src/server/decoy.html ' +
+              '&> log/decoy.log &')
 
     covert = net.getNodeByName('covert_dst')
     covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert_tcp.pcap ' +
                '&> /dev/null &')
-    covert.cmd('go run src/main/server.go &> log/covert.log &')
+    covert.cmd('go run src/main/server.go -f src/server/covert.html ' +
+               '&> log/covert.log &')
 
     client = net.getNodeByName('client')
     client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap ' +
                '&> /dev/null &')
-    client.cmd('go run src/main/client.go &> log/client.log &')
+    client.cmd('go run src/main/client.go -decoy "10.0.0.3:8080" ' +
+               '-covert "10.0.0.4:8080" &> log/client.log &')
 
-    sleep(2)
+    sleep(10)
     if args.mininet_cli:
         CLI(net)
 

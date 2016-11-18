@@ -111,6 +111,14 @@ hijack TCP connection after TLS handshake completes.
 Week 11/16 - 11/22
 ------------------
 * (11/16) Finished debugging client seqNo/ackNo remapping.
+* (11/17) Expanded testing code in client.go and server.go to make tests more
+realistic.
+  * The servers (decoy and covert) server webpages.
+  * The client requests the covert destination using HTTP proxy protocol.
+  * Fixed bug in code to remap seqNo/ackNo caused by negative difference
+between tag and seq number. Solved using new actions in client_switch.p4.
+* (11/18) More work on testing framework.
+  * Integrated real proxy for decoy proxy.
 
 
 Design Decisions
