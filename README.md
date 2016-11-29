@@ -119,6 +119,25 @@ realistic.
 between tag and seq number. Solved using new actions in client_switch.p4.
 * (11/18) More work on testing framework.
   * Integrated real proxy for decoy proxy.
+  * Started writing decoy switch in Python for testing/measurement.
+* (11/19 and 11/20) More work debugging Python switch. Still not working. I
+know that the problem has to do with the mininet configuration but debugging is
+slow without documentation.
+* (11/22) Still debugging software switch. It seems like the covert and decoy
+destinations just stop working when the client switch is being used. Not clear
+why this would happen because those hosts are the same whether or not the
+software switch is used. Mininet is so frustrating...
+
+Week 11/23 - 11/29
+------------------
+* (11/23) More debugging software client. No clear progress. Probably going to
+work on something else for a while.
+* (11/26) Worked on software switch
+  * Figured out why baseline switch not working! (scapy is dumb)
+  * Started working on the tag detection aspect of the switch. Down the rabbit
+hole trying to compute the tag the same as P4.
+* (11/28) More work on software switch.
+  * Figured out how to calculate the tag in Python!
 
 
 Design Decisions

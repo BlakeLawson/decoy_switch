@@ -44,6 +44,7 @@ def vprint(s):
 def vprintf(s):
     if args.verbose:
         sys.stdout.write(s)
+        sys.stdout.flush()
 
 
 def send_to_CLI(cmd):

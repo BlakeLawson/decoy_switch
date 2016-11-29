@@ -30,10 +30,6 @@ action set_nhop(nhop_ipv4, port) {
   add_to_field(ipv4.ttl, -1);
 }
 
-action set_dmac(dmac) {
-  modify_field(ethernet.dstAddr, dmac);
-}
-
 table ipv4_lpm {
   reads {
     ipv4.dstAddr: lpm;
@@ -43,6 +39,10 @@ table ipv4_lpm {
     _drop;
   }
   size: 1024;
+}
+
+action set_dmac(dmac) {
+  modify_field(ethernet.dstAddr, dmac);
 }
 
 table forward {
@@ -124,7 +124,7 @@ action send_to_proxy(ipAddr, port) {
   modify_field(ipv4.dstAddr, ipAddr);
   modify_field(tcp.dstPort, port);
 
-  // Get ride of cpu header
+  // Get rid of cpu header
   remove_header(cpu_header);
 }
 

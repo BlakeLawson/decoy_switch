@@ -20,6 +20,25 @@ CLI_PATH=$BMV2_PATH/targets/simple_switch/sswitch_CLI
 $P4C_BM_SCRIPT $TOP_DIR/p4src/tag_detection.p4 --json tag_detection.json
 $P4C_BM_SCRIPT $TOP_DIR/p4src/client_switch.p4 --json client_switch.json
 
+# Parse command line arguments (really just for software switch)
+use_cli=0
+sswitch=""
+
+# Reset in case previously used
+OPTIND=1
+while getopts "h?cs:" opt; do
+  case "$opt" in
+    h|\?)
+      show_help
+      exit 0
+      ;;
+    c) use_cli=1
+      ;;
+    s) sswitch=$OPTARG
+      ;;
+  esac
+done
+
 # Let the switch library "warm up"
 sudo $SWITCH_PATH > /dev/null 2>&1
 
@@ -79,7 +98,8 @@ sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python $TOP_DIR/scripts/topo.py 
     --client-json $TOP_DIR/client_switch.json \
     --client-commands $TOP_DIR/p4src/commands/client_commands.txt \
     --verbose \
-#    --mininet-cli
+    $([[ $use_cli = 1 ]] && echo "--mininet-cli") \
+    $([[ $sswitch != "" ]] && echo "--sw-switch $sswitch")
 
 # Get mininet log files
 mv /tmp/p4s.* $TOP_DIR/log/
