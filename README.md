@@ -138,6 +138,19 @@ work on something else for a while.
 hole trying to compute the tag the same as P4.
 * (11/28) More work on software switch.
   * Figured out how to calculate the tag in Python!
+  * Wrote remaining code for Python decoy switch and started debugging.
+  * Started working on final paper. Mostly set up Latex formatting.
+* (11/29) More work on debugging and more paper set up.
+
+Week 11/30 - 12/6
+-----------------
+* (11/30) Worked on introduction of paper.
+* (12/1) Paper + coding
+  * Finished up introduction for now and started working on background section.
+  * Debugging why Python switch not working. Very confused. Python switch sends
+packets identical to those from the P4 switch, but the proxy and covert dst
+don't accept the connections.
+* (12/2) Paper + emailed Jen about debugging issues
 
 
 Design Decisions

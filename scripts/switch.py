@@ -38,11 +38,18 @@ mac_to_intf = {
     '00:00:00:00:00:04': 's1-eth3',
 }
 
+PROXY_IP = '10.0.0.2'
+PROXY_PORT = 8888
+
+SYN_FLAGS = 0x2
+ETHER_HEADER_LEN = 14
+
 # Dictionary used to determine whether a flow is using decoy switching. The
 # keys for this dict are tuples containing srcIp, srcPort, dstIp, and dstPort,
 # and it is used to map from client to proxy and from proxy to client.
-tagged_flows_l = threading.Lock()
-tagged_flows = {}
+flows_l = threading.Lock()
+outbound_flows = {}
+inbound_flows = {}
 
 
 def vprint(s):
@@ -83,14 +90,37 @@ def handle_tcp(pkt):
     '''
     Handle packet containing TCP headers.
     '''
-    if pkt[TCP].flags == 0x2:
+    if pkt[TCP].flags == SYN_FLAGS:
         # SYN packet. Check for tagging
         seq = pkt[TCP].seq
         tag = calculate_tag(pkt)
-        vprintf('Got a SYN packet\nseq = %x\ttag = %x\n' % (seq, tag))
-        pkt.show()
+
         if tag == seq:
             vprint('FOUND A TAGGED PACKET')
+            flows_l.acquire()
+
+            # Mark the flow for decoy routing
+            k = (pkt[IP].src, pkt[TCP].sport, pkt[IP].dst, pkt[TCP].dport)
+            outbound_flows[k] = (PROXY_IP, PROXY_PORT)
+
+            k = (PROXY_IP, PROXY_PORT, pkt[IP].src, pkt[TCP].sport)
+            inbound_flows[k] = (pkt[IP].dst, pkt[TCP].dport)
+            flows_l.release()
+
+    # Determine whether packet should be rerouted
+    flows_l.acquire()
+    k = (pkt[IP].src, pkt[TCP].sport, pkt[IP].dst, pkt[TCP].dport)
+    if k in outbound_flows:
+        dstIp, dstPort = outbound_flows[k]
+        pkt[IP].dst = dstIp
+        pkt[TCP].dport = dstPort
+        del pkt[TCP].chksum
+    elif k in inbound_flows:
+        decoyIp, decoyPort = inbound_flows[k]
+        pkt[IP].src = decoyIp
+        pkt[TCP].sport = decoyPort
+        del pkt[TCP].chksum
+    flows_l.release()
 
     handle_ipv4(pkt)
 
@@ -100,15 +130,20 @@ def handle_ipv4(pkt):
     Handle packet containing IPv4 headers.
     '''
     ip_header = pkt[IP]
+    if ip_header.dst not in ip_to_mac:
+        # Drop the packet
+        vprint("Dropping something else")
+        return
+
     dst_mac = ip_to_mac[ip_header.dst]
     out_intf = mac_to_intf[dst_mac]
 
-    spkt = Ether(src=pkt[Ether].src, dst=dst_mac)
-    spkt = spkt/IP(src=ip_header.src, dst=ip_header.dst, ttl=ip_header.ttl - 1)
-    if TCP in pkt:
-        spkt = spkt/pkt[TCP]
-    elif ICMP in pkt:
-        spkt = spkt/pkt[ICMP]
+    pkt_str = str(pkt)
+    pkt_minus_ether = IP(pkt_str[ETHER_HEADER_LEN:])
+
+    spkt = Ether(src=pkt[Ether].src, dst=dst_mac)/pkt_minus_ether
+    spkt[IP].ttl -= 1
+    del spkt[IP].chksum
     sendp(spkt, iface=out_intf, verbose=0)
 
 
@@ -190,6 +225,7 @@ def incoming_filter(pkt, intf):
     glock.release()
     if pkt[Ether].src in mac_to_intf:
         return mac_to_intf[pkt[Ether].src] == intf
+    print 'We\'re dropping something'
     return False
 
 

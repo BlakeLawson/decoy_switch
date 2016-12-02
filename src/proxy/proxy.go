@@ -498,6 +498,7 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		// Since sending failed, no point in sending additional error message
 		// to the client.
+    fmt.Printf("proxy: failed to forward response: %s\n", err)
 		return
 	}
 
@@ -577,6 +578,7 @@ func Start() {
 	// Create basic server
 	ln, err := net.Listen(tcpProtocol, fmt.Sprintf(":%d", listeningPort))
 	if err != nil {
+    fmt.Printf("proxy: Failed to create listener on port %d: %s\n", listeningPort, err)
 		return
 	}
 
@@ -584,7 +586,8 @@ func Start() {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			return
+      fmt.Printf("proxy: Failed to accept request: %s\n", err)
+      return
 		}
 		go handleRequest(conn)
 	}

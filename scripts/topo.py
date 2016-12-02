@@ -12,7 +12,7 @@ from mininet.node import CPULimitedHost
 from mininet.topo import Topo
 from mininet.link import Intf
 
-from p4_mininet import P4Host, P4Switch
+from p4_mininet import P4Switch
 
 from time import sleep
 
@@ -126,7 +126,14 @@ def init_switches(net):
     # Initialize the decoy switch
     if args.sw_switch is not None:
         s1 = net.get('s1')
-        s1.cmd('sudo tcpdump -v -i any -s 0 -w log/s1.pcap &> /dev/null &')
+        s1.cmd('sudo tcpdump -v -i s1-eth0 -s 0 -w log/s1-eth0.pcap ' +
+               '&> /dev/null &')
+        s1.cmd('sudo tcpdump -v -i s1-eth1 -s 0 -w log/s1-eth1.pcap ' +
+               '&> /dev/null &')
+        s1.cmd('sudo tcpdump -v -i s1-eth2 -s 0 -w log/s1-eth2.pcap ' +
+               '&> /dev/null &')
+        s1.cmd('sudo tcpdump -v -i s1-eth3 -s 0 -w log/s1-eth3.pcap ' +
+               '&> /dev/null &')
         cmd = 'python %s %s -proxy-ip %s -proxy-port %s &> log/sw_switch.log &'
         params = (
             args.sw_switch,
@@ -169,8 +176,10 @@ def main():
                     switch_json_path=args.switch_json,
                     client_json_path=args.client_json)
     vprint('Initialized topo')
-    # net = Mininet(topo=topo, host=P4Host, switch=P4Switch, controller=None)
-    net = Mininet(topo=topo, host=CPULimitedHost, switch=P4Switch, controller=None)
+    net = Mininet(topo=topo,
+                  host=CPULimitedHost,
+                  switch=P4Switch,
+                  controller=None)
     if args.sw_switch is None:
         Intf('cpu-veth-1', net.get('s1'), 11)
     Intf('cpu-veth-3', net.get('s2'), 12)
@@ -184,25 +193,25 @@ def main():
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
-    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy_tcp.pcap ' +
+    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy.pcap ' +
               '&> /dev/null &')
     proxy.cmd('go run src/main/proxy.go -port 8888 -file /dev/null ' +
               '&> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy')
-    decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy_tcp.pcap ' +
+    decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy.pcap ' +
               '&> /dev/null &')
     decoy.cmd('go run src/main/server.go -f src/server/decoy.html ' +
               '&> log/decoy.log &')
 
     covert = net.getNodeByName('covert')
-    covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert_tcp.pcap ' +
+    covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert.pcap ' +
                '&> /dev/null &')
     covert.cmd('go run src/main/server.go -f src/server/covert.html ' +
                '&> log/covert.log &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client_tcp.pcap ' +
+    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client.pcap ' +
                '&> /dev/null &')
     client.cmd('go run src/main/client.go -decoy "10.0.0.3:8080" ' +
                '-covert "10.0.0.4:8080" &> log/client.log &')

@@ -195,7 +195,6 @@ control tcp_ingress {
       }
     }
   } else {
-    // TODO: Check decoy tag table here...
     // General logic here... If the packet is on its way back from decoy
     // dst, need to restore the covert destination. If the packet is on its
     // way out and the packet is in the tagged table, change the covert
@@ -217,9 +216,8 @@ table debug {
   actions {
     _no_op;
   }
-  size: 1;
+  size: 0;
 }
-
 
 /* MAIN INGRESS */
 
@@ -239,7 +237,9 @@ control ingress {
 /* EGRESS */
 
 action rewrite_mac(smac) {
-  modify_field(ethernet.srcAddr, smac);
+  // TODO: Figure out why the default code changes the srdAddr
+  // modify_field(ethernet.srcAddr, smac);
+  modify_field(ethernet.dstAddr, smac);
 }
 
 table send_frame {
