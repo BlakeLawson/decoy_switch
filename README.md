@@ -151,6 +151,8 @@ Week 11/30 - 12/6
 packets identical to those from the P4 switch, but the proxy and covert dst
 don't accept the connections.
 * (12/2) Paper + emailed Jen about debugging issues
+* (12/3) Planned changes to switch to remove need for separate proxy, and
+drafted Telex background information for the paper.
 
 
 Design Decisions
