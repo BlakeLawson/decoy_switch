@@ -2,23 +2,15 @@
  * Author: Blake Lawson (blawson@princeton.edu)
  * Adviser: Jennifer Rexford
  * 
- * Rewrite dest IP if hidden tags in TLS ClientHello detected.
- *
- * Base forwarding code from p4 SIGCOMM_2016 tutorial.
+ * Rewrite dest IP if hidden tags in SYN sequence number detected.
  */
 #include "includes/defines.p4"
 #include "includes/hashes.p4"
 #include "includes/headers.p4"
 #include "includes/metadata.p4"
 #include "includes/parser.p4"
-
-action _no_op() {
-  no_op();
-}
-
-action _drop() {
-  drop();
-}
+#include "includes/arp.p4"
+#include "includes/standard_actions.p4"
 
 /* INGRESS */
 
@@ -59,44 +51,6 @@ table forward {
 control ipv4_ingress {
   apply(ipv4_lpm);
   apply(forward);
-}
-
-/* ARP */
-
-// Convert ARP query into response
-action set_arp_resp(dmac) {
-  // Store relevant information from current packet.
-  modify_field(arp_tmp_metadata.reqMac, arp.senderHdwAddr);
-  modify_field(arp_tmp_metadata.reqIp, arp.senderProtoAddr);
-  modify_field(arp_tmp_metadata.queryMac, dmac);
-  modify_field(arp_tmp_metadata.queryIp, arp.tgtProtoAddr);
-
-  // Perform conversion 
-  modify_field(arp.opCode, ARP_REPLY);
-  modify_field(arp.senderHdwAddr, arp_tmp_metadata.queryMac);
-  modify_field(arp.senderProtoAddr, arp_tmp_metadata.queryIp);
-  modify_field(arp.tgtHdwAddr, arp_tmp_metadata.reqMac);
-  modify_field(arp.tgtProtoAddr, arp_tmp_metadata.reqIp);
-
-  modify_field(ethernet.dstAddr, arp_tmp_metadata.reqMac);
-  modify_field(standard_metadata.egress_spec, standard_metadata.ingress_port);
-}
-
-table arp_resp_lookup {
-  reads {
-    arp.tgtProtoAddr: exact;
-  }
-  actions {
-    set_arp_resp;
-    _drop;
-  }
-  size: 128;
-}
-
-control arp_ingress {
-  if (arp.opCode == ARP_REQUEST) {
-    apply(arp_resp_lookup);
-  }
 }
 
 
