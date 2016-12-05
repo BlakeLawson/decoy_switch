@@ -153,6 +153,21 @@ don't accept the connections.
 * (12/2) Paper + emailed Jen about debugging issues
 * (12/3) Planned changes to switch to remove need for separate proxy, and
 drafted Telex background information for the paper.
+* (12/4) Mostly worked on implementing changes to switch to remove proxy.
+  * Refactored P4 code so easier to work with. Client switch and decoy switch
+in separate directories, and moved a bunch of code in the decoy switch into
+other files to make code more modular.
+  * Created module for decoy switch that tracks state of TCP handshake with
+decoy destination using bloom filters.
+  * Modified client switch so it does not forward tagged packets until they are
+added to the client's match action tables through the controller. Previously
+sent and added to table simultaneously.
+  * Starting debugging tagging module.
+  * Started writing background on Cirripede in final paper.
+* (12/5) More work removing proxy
+  * Finished debugging tagging module with TCP handshake detection.
+  * Finished Cirripede background section and added figures for background
+section.
 
 
 Design Decisions
