@@ -5,7 +5,7 @@ Adviser: Jennifer Rexford
 Controller for client switch. Keeps track of mapping between original sequence
 numbers and new sequence numbers after tagging.
 '''
-from scapy.all import Ether, sniff
+from scapy.all import Ether, sniff, sendp
 from subprocess import Popen, PIPE
 
 import argparse
@@ -115,6 +115,10 @@ def process_cpu_packet(packet):
     vprint(p.summary())
 
     add_to_table(ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport, diff)
+
+    # Send the packet back to the switch to forward
+    new_p = p_str[:8] + '\xac' + p_str[21:]
+    sendp(new_p, iface=args.interface, verbose=args.verbose)
 
 
 def main():

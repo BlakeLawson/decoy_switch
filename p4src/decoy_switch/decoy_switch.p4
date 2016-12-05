@@ -11,6 +11,7 @@
 #include "includes/parser.p4"
 #include "includes/arp.p4"
 #include "includes/standard_actions.p4"
+#include "includes/tag_manager.p4"
 
 /* INGRESS */
 
@@ -56,42 +57,10 @@ control ipv4_ingress {
 
 /* TCP Tagging, etc. */
 
-
-action do_calculate_tag() {
-  // 0x100000000 == 2^32
-  modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0x100000000);
-}
-
-// Determine whether packet contains tag
-table calculate_tag {
-  actions {
-    do_calculate_tag;
-  }
-  size: 0;
-}
-
 action send_to_proxy(ipAddr, port) {
-  // Save the proxy ip address
-  modify_field(decoy_metadata.proxyIp, ipAddr);
-
   // Prepare packet for forwarding to proxy
   modify_field(ipv4.dstAddr, ipAddr);
   modify_field(tcp.dstPort, port);
-
-  // Get rid of cpu header
-  remove_header(cpu_header);
-}
-
-// Gets the ip addr of the decoy proxy
-table proxy_ip_table {
-  reads {
-    decoy_metadata.tag: valid;
-  }
-  actions {
-    send_to_proxy;
-    _no_op;
-  }
-  size: 1;
 }
 
 #define CPU_MIRROR_SESSION_ID 250
@@ -106,14 +75,6 @@ action do_record_flow() {
   // Drop the packet. It will be sent once the controller is done
   modify_field(routing_metadata.do_route, FALSE);
   drop();
-}
-
-// Tag the flow
-table record_flow {
-  actions {
-    do_record_flow;
-  }
-  size: 0;
 }
 
 // Update the packet's dest ip and port so it's from the covert dst
@@ -132,52 +93,38 @@ table check_tag {
   actions {
     send_to_proxy;
     hide_dst;
-    _no_op;
+    do_record_flow;
   }
   size: 256;
 }
 
-control tcp_ingress {
-  if (tcp.flags == TCP_FLAG_SYN) {
-    apply(calculate_tag);
-    if (decoy_metadata.tag == tcp.seqNo) {
-      if (cpu_metadata.from_cpu == FALSE) {
-        // Send to CPU to mark flow
-        apply(record_flow);
-      } else {
-        apply(proxy_ip_table);
-      }
-    }
-  } else {
-    // General logic here... If the packet is on its way back from decoy
-    // dst, need to restore the covert destination. If the packet is on its
-    // way out and the packet is in the tagged table, change the covert
-    // destination to the decoy proxy.
-
-    // Check whether the packet is in a tagged flow
-    apply(check_tag);
-  }
+action do_remove_cpu_header() {
+  remove_header(cpu_header);
 }
 
-table debug {
-  reads {
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-    standard_metadata.instance_type: exact;
-  }
+table remove_cpu_header {
   actions {
-    _no_op;
+    do_remove_cpu_header;
   }
   size: 0;
+}
+
+control tcp_ingress {
+  if (cpu_metadata.from_cpu == TRUE) {
+    apply(remove_cpu_header);
+  }
+
+  // Take care of tag detection/handling
+  tagging();
+  if (tagging_metadata.ready_for_routing == TRUE) {
+    apply(check_tag);
+  }
 }
 
 /* MAIN INGRESS */
 
 control ingress {
   if (valid(tcp)) {
-    apply(debug);
     tcp_ingress();
   }
   if (valid(arp)) {

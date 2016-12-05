@@ -23,23 +23,6 @@ action _no_op() {
   no_op();
 }
 
-table debug {
-  reads {
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-    tcp.seqNo: exact;
-    tcp.ackNo: exact;
-    decoy_metadata.tag: exact;
-    standard_metadata.instance_type: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size: 0;
-}
-
 /* INGRESS */
 
 field_list copy_to_cpu_fields {
@@ -47,16 +30,16 @@ field_list copy_to_cpu_fields {
   decoy_metadata;
 }
 
-action set_tag() {
+action do_set_tag() {
   // 0x100000000 == 2^32
   modify_field_with_hash_based_offset(decoy_metadata.tag, 0, tag_hash, 0x100000000);
-  modify_field(tcp.seqNo, decoy_metadata.tag);
   clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
+  drop();
 }
 
 table set_tag_table {
   actions {
-    set_tag;
+    do_set_tag;
   }
   size: 0;
 }
@@ -94,34 +77,60 @@ table tag_offset {
   size: 256;
 }
 
-control tcp_ingress {
-  if (tcp.flags == TCP_FLAG_SYN) {
-    // Mark and send to controller to update tables
-    apply(set_tag_table);
-  } else {
-    // Lookup in table and do some stuff
-    apply(tag_offset);
-  }
+action cpu_to_client() {
+  remove_header(cpu_header);
+  modify_field(standard_metadata.egress_spec, CLIENT_PORT);
 }
 
-action send_to_world() {
+action cpu_to_world() {
+  remove_header(cpu_header);
   modify_field(standard_metadata.egress_spec, WORLD_PORT);
 }
 
-action send_to_client() {
+table handle_cpu_table {
+  reads {
+    ipv4.dstAddr: lpm;
+  }
+  actions {
+    cpu_to_client;
+    cpu_to_world;
+  }
+  size: 1;
+}
+
+control tcp_ingress {
+  if (tcp.flags == TCP_FLAG_SYN) {
+    if (cpu_metadata.from_cpu == TRUE) {
+      // Remove the cpu headers and update egress port
+      apply(handle_cpu_table);
+    } else {
+      // Mark and send to controller to update tables
+      apply(set_tag_table);
+    }
+  }
+
+  // Lookup in table and do some stuff
+  apply(tag_offset);
+}
+
+action do_send_to_world() {
+  modify_field(standard_metadata.egress_spec, WORLD_PORT);
+}
+
+action do_send_to_client() {
   modify_field(standard_metadata.egress_spec, CLIENT_PORT);
 }
 
 table send_to_world {
   actions {
-    send_to_world;
+    do_send_to_world;
   }
   size: 0;
 }
 
 table send_to_client {
   actions {
-    send_to_client;
+    do_send_to_client;
   }
   size: 0;
 }
@@ -197,7 +206,6 @@ table send_to_cpu {
 }
 
 control egress {
-  // apply(debug);
   if (standard_metadata.instance_type != 0) {
     // Packet to controller
     apply(send_to_cpu);

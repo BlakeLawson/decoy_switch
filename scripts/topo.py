@@ -10,7 +10,7 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
 from mininet.topo import Topo
-from mininet.link import Intf
+from mininet.link import Intf, TCLink
 
 from p4_mininet import P4Switch
 
@@ -102,11 +102,11 @@ class TestTopo(Topo):
                 pcap_dump=True,
                 verbose=True)
 
-        self.addLink('s2', 'client')
-        self.addLink('s1', 's2')
-        self.addLink('s1', 'proxy')
-        self.addLink('s1', 'decoy')
-        self.addLink('s1', 'covert')
+        self.addLink('s2', 'client', bw=1, delay='1ms')
+        self.addLink('s1', 's2', bw=1, delay='1ms')
+        self.addLink('s1', 'proxy', bw=1, delay='1ms')
+        self.addLink('s1', 'decoy', bw=1, delay='1ms')
+        self.addLink('s1', 'covert', bw=1, delay='1ms')
 
 
 def init_hosts(net):
@@ -179,6 +179,7 @@ def main():
     net = Mininet(topo=topo,
                   host=CPULimitedHost,
                   switch=P4Switch,
+                  link=TCLink,
                   controller=None)
     if args.sw_switch is None:
         Intf('cpu-veth-1', net.get('s1'), 11)

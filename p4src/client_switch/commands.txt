@@ -1,7 +1,7 @@
-table_set_default set_tag_table set_tag
+table_set_default set_tag_table do_set_tag
 table_set_default arp_resp_lookup _drop
-table_set_default send_to_client send_to_client
-table_set_default send_to_world send_to_world
+table_set_default send_to_client do_send_to_client
+table_set_default send_to_world do_send_to_world
 table_add arp_resp_lookup set_arp_resp 10.0.0.1 => 00:00:00:00:00:01
 table_add arp_resp_lookup set_arp_resp 10.0.0.2 => 00:00:00:00:00:02
 table_add arp_resp_lookup set_arp_resp 10.0.0.3 => 00:00:00:00:00:03
@@ -9,3 +9,5 @@ table_add arp_resp_lookup set_arp_resp 10.0.0.4 => 00:00:00:00:00:04
 table_set_default send_to_cpu do_cpu_encap
 mirroring_add 251 12
 table_set_default tag_offset _no_op
+table_set_default handle_cpu_table cpu_to_world
+table_add handle_cpu_table cpu_to_client 10.0.0.1/32 =>
