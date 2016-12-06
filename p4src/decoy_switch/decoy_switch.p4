@@ -12,6 +12,7 @@
 #include "includes/arp.p4"
 #include "includes/standard_actions.p4"
 #include "includes/tag_manager.p4"
+#include "includes/decoy_routing.p4"
 
 /* INGRESS */
 
@@ -54,50 +55,6 @@ control ipv4_ingress {
   apply(forward);
 }
 
-
-/* TCP Tagging, etc. */
-
-action send_to_proxy(ipAddr, port) {
-  // Prepare packet for forwarding to proxy
-  modify_field(ipv4.dstAddr, ipAddr);
-  modify_field(tcp.dstPort, port);
-}
-
-#define CPU_MIRROR_SESSION_ID 250
-
-field_list copy_to_cpu_fields {
-  standard_metadata;
-}
-
-action do_record_flow() {
-  clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
-
-  // Drop the packet. It will be sent once the controller is done
-  modify_field(routing_metadata.do_route, FALSE);
-  drop();
-}
-
-// Update the packet's dest ip and port so it's from the covert dst
-action hide_dst(covert_addr, covert_port) {
-  modify_field(ipv4.srcAddr, covert_addr);
-  modify_field(tcp.srcPort, covert_port);
-}
-
-table check_tag {
-  reads {
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-  }
-  actions {
-    send_to_proxy;
-    hide_dst;
-    do_record_flow;
-  }
-  size: 256;
-}
-
 action do_remove_cpu_header() {
   remove_header(cpu_header);
 }
@@ -117,7 +74,7 @@ control tcp_ingress {
   // Take care of tag detection/handling
   tagging();
   if (tagging_metadata.ready_for_routing == TRUE) {
-    apply(check_tag);
+    decoy_routing();
   }
 }
 
@@ -138,8 +95,6 @@ control ingress {
 /* EGRESS */
 
 action rewrite_mac(smac) {
-  // TODO: Figure out why the default code changes the srdAddr
-  // modify_field(ethernet.srcAddr, smac);
   modify_field(ethernet.dstAddr, smac);
 }
 
@@ -157,7 +112,7 @@ table send_frame {
 action do_cpu_encap() {
   add_header(cpu_header);
   modify_field(cpu_header.preamble, 0);
-  modify_field(cpu_header.reason, 0xab); // Meaningless right now
+  modify_field(cpu_header.reason, cpu_metadata.reason);
 }
 
 table send_to_cpu {

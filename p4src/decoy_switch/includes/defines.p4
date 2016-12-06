@@ -42,3 +42,8 @@
 #define TCP_FLAG_PSH        8
 #define TCP_FLAG_ACK        16
 #define TCP_FLAG_URG        32
+
+/* OTHER */
+#define ETHER_HEADER_LEN    14
+#define IPV4_HEADER_LEN     20
+#define TCP_HEADER_LEN      40
