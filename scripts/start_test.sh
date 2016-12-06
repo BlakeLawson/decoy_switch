@@ -62,12 +62,13 @@ sysctl net.ipv6.conf.$inf1.disable_ipv6=1
 sudo python $TOP_DIR/p4src/decoy_switch/controller.py \
     --cli $CLI_PATH \
     --json $TOP_DIR/p4src/decoy_switch/decoy_switch.json \
+    --switch-addr "10.0.0.10" \
     --thrift-port 22222 \
-    --proxy-addr "10.0.0.2" \
-    --proxy-port 8888 \
     --interface $inf0 \
     --verbose \
     &> $TOP_DIR/log/decoy_controller.log &
+    # --proxy-addr "10.0.0.2" \
+    # --proxy-port 8888 \
 
 # Create CPU port for client switch
 inf2="cpu-veth-2"

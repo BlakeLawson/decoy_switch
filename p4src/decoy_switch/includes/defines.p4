@@ -42,3 +42,6 @@
 #define TCP_FLAG_PSH        8
 #define TCP_FLAG_ACK        16
 #define TCP_FLAG_URG        32
+
+/* OTHER */
+#define TCP_PACKET_LEN_SANS_PAYLOAD 52

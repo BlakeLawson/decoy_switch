@@ -15,8 +15,8 @@ parser start {
   }
 }
 
-header ethernet_t ethernet;
 
+header ethernet_t ethernet;
 parser parse_ethernet {
   extract(ethernet);
   return select(latest.etherType) {
@@ -26,23 +26,23 @@ parser parse_ethernet {
   }
 }
 
-header arp_t arp;
 
+header arp_t arp;
 parser parse_arp {
   extract(arp);
   return ingress;
 }
 
-header cpu_header_t cpu_header;
 
+header cpu_header_t cpu_header;
 parser parse_cpu_header {
   extract(cpu_header);
   set_metadata(cpu_metadata.from_cpu, TRUE);
   return parse_ethernet;
 }
 
-header ipv4_t ipv4;
 
+header ipv4_t ipv4;
 parser parse_ipv4 {
   extract(ipv4);
   return select(latest.protocol) {
@@ -51,8 +51,8 @@ parser parse_ipv4 {
   }
 }
 
-header tcp_t tcp;
 
+header tcp_t tcp;
 parser parse_tcp {
   extract(tcp);
   set_metadata(tcp_metadata.tcpLength, ipv4.totalLen - 20);

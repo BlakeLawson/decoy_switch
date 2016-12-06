@@ -112,9 +112,9 @@ class TestTopo(Topo):
 def init_hosts(net):
     for h in net.hosts:
         h.cmd('export GOPATH="/home/blake/Documents/code/"')
-        h.cmd("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-        h.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        h.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+        h.cmd('sysctl -w net.ipv6.conf.all.disable_ipv6=1')
+        h.cmd('sysctl -w net.ipv6.conf.default.disable_ipv6=1')
+        h.cmd('sysctl -w net.ipv6.conf.lo.disable_ipv6=1')
 
 
 def init_switches(net):

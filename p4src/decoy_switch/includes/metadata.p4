@@ -1,5 +1,5 @@
 /*
- * Author: Blake Lawson
+ * Author: Blake Lawson (blawson@princeton.edu)
  * Adviser: Jennifer Rexford
  */
 
@@ -29,6 +29,7 @@ metadata arp_tmp_metadata_t arp_tmp_metadata;
 header_type cpu_metadata_t {
   fields {
     from_cpu : 1;
+    reason: 8;
   }
 }
 metadata cpu_metadata_t cpu_metadata;

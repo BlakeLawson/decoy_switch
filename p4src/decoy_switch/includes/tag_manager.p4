@@ -1,5 +1,5 @@
 /*
- * Author: Blake Lawson
+ * Author: Blake Lawson (blawson@princeton.edu)
  * Adviser: Jennifer Rexford
  *
  * This module is intended to track the state of TCP handshake between a tagged
@@ -83,9 +83,11 @@ register tagging_ack_counter2 {
 
 
 /* Match-action tables for the module */
+// ----------------------------------------------------------------------------
 
 
 action do_tagging_init() {
+  // Most of these are unnecessary because metadata is set to 0 by default...
   modify_field(tagging_metadata.ready_for_routing, FALSE);
   modify_field(tagging_metadata.syn_seen, FALSE);
   modify_field(tagging_metadata.ack_seen, FALSE);
