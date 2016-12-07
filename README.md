@@ -176,6 +176,22 @@ the connection to the decoy destination (tested and works).
   * Mapped out logic for implementing decoy handshake/connection takeover in
 P4.
 
+Week 12/7 - 12/13
+-----------------
+* (12/7) General Work
+  * Met with Rob for help debugging Python switch. No special insights. He
+suggested looking at the TCP state machine to figure out why RST,ACK could
+follow a SYN. He also recommended making my work Mininet Switch class for the
+Python switch since Mininet may configure its network map differently.
+  * Fixed a bug in code from yesterday that effected the way RST packets were
+generated. Now all interactions with the decoy destination concluded and ready
+to set up connection to the covert destination.
+  * Started working on making connection to covert destination. Ran into minor
+roadblock because the version of P4 in my test environment does not support
+a function in the P4 spec (clone_ingress_pkt_to_ingress).
+  * Wrote about half of the background information on P4 for my final paper.
+Also read several one-semester IW papers from past years and feeling like I
+wrote a little too much on Decoy Routing, Telex, and Cirripede.
 
 Design Decisions
 ================
