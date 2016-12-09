@@ -192,6 +192,17 @@ a function in the P4 spec (clone_ingress_pkt_to_ingress).
   * Wrote about half of the background information on P4 for my final paper.
 Also read several one-semester IW papers from past years and feeling like I
 wrote a little too much on Decoy Routing, Telex, and Cirripede.
+* (12/8) Wrote more about P4 in paper.
+* (12/9) More work to remove proxy and work on submission stuff.
+  * Finished subsection on P4 in the paper and finished the background section
+of paper.
+  * Started working on presentation slides for next week.
+  * Got the decoy switch to send SYN packet to covert as well as RST packet to
+the decoy destination. For some reason the SYN packet isn't getting truncated
+and it still contains the GET request from the client.. Need to figure that
+out. As an aside, dealing with the P4 virtual switch can be a pain because it
+does not always conform to the spec. This time had issues because I wasn't
+cloning the packet using a mirrored port.
 
 Design Decisions
 ================
