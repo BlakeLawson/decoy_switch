@@ -15,7 +15,7 @@
 header_type decoy_routing_metadata_t {
   fields {
     done: 1;
-    resumbit: 1;
+    isCopy: 1;
     synAck: 1;
     inToClient: 1;
     outFromClient: 1;
@@ -34,6 +34,11 @@ metadata decoy_routing_metadata_t decoy_routing_metadata;
 field_list copy_to_cpu_fields {
   standard_metadata;
   cpu_metadata;
+}
+
+field_list recirculate_fields {
+  standard_metadata;
+  decoy_routing_metadata;
 }
 
 
@@ -100,10 +105,30 @@ action do_close_connection() {
   truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
 
   // TODO: Recirculate the packet in order to send SYN to covert
+  modify_field(decoy_routing_metadata.isCopy, TRUE);
+  clone_ingress_pkt_to_ingress(0, recirculate_fields);
 }
 table close_connection {
   actions {
     do_close_connection;
+  }
+  size: 0;
+}
+
+
+// Convert the packet into a SYN packet to the covert destination.
+//
+// TODO: Debug this. Think about how to calculate the seq and ack differences
+action do_open_covert_connection() {
+  modify_field(ipv4.srcAddr, decoy_routing_metadata.newIpSrc);
+  modify_field(ipv4.dstAddr, decoy_routing_metadata.newIpDst);
+  modify_field(tcp.srcPort, decoy_routing_metadata.newTcpSport);
+  modify_field(tcp.dstPort, decoy_routing_metadata.newTcpDport);
+  modify_field(tcp.flags, TCP_FLAG_SYN);
+}
+table open_covert_connection {
+  actions {
+    do_open_covert_connection;
   }
   size: 0;
 }
@@ -117,6 +142,11 @@ control handle_out_from_client {
     // time. In that case, it is time to start a new connection with the covert
     // destination.
     apply(close_connection);
+  }
+  if (decoy_routing_metadata.isCopy == TRUE) {
+    // This packet should be sent to start a new connection to the covert
+    // destination.
+    apply(open_covert_connection);
   }
 }
 
