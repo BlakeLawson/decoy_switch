@@ -10,12 +10,23 @@
  * is done configuring the connection to the covert destination,
  * decoy_routing_metadata.done will be set to 1. Otherwise, it will be set
  * to 0.
+ *
+ * When using this module, it is also necessary to invoke the decoy_egress()
+ * control in the egress pipeline. The decoy_egress control sets metadata
+ * field decoy_routing_metadata.egress_used to 1 if this module did something
+ * to the packet that should not be changed. Check that field after invoking,
+ * and if it is 1, do not do anything else to the packet.
+ *
+ * Also necessary to call decoy_routing_ingress_tail() at the end of the
+ * ingress pipeline.
  */
 
 header_type decoy_routing_metadata_t {
   fields {
     done: 1;
+    egress_used: 1;
     isCopy: 1;
+    doClone: 1;
     synAck: 1;
     inToClient: 1;
     outFromClient: 1;
@@ -104,9 +115,8 @@ action do_close_connection() {
   modify_field(ipv4.totalLen, IPV4_HEADER_LEN + TCP_HEADER_LEN);
   truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
 
-  // TODO: Recirculate the packet in order to send SYN to covert
-  modify_field(decoy_routing_metadata.isCopy, TRUE);
-  clone_ingress_pkt_to_ingress(0, recirculate_fields);
+  // Recirculate the packet in order to send SYN to covert
+  modify_field(decoy_routing_metadata.doClone, TRUE);
 }
 table close_connection {
   actions {
@@ -124,7 +134,16 @@ action do_open_covert_connection() {
   modify_field(ipv4.dstAddr, decoy_routing_metadata.newIpDst);
   modify_field(tcp.srcPort, decoy_routing_metadata.newTcpSport);
   modify_field(tcp.dstPort, decoy_routing_metadata.newTcpDport);
+
   modify_field(tcp.flags, TCP_FLAG_SYN);
+  modify_field(tcp.ackNo, 0);
+  modify_field(ipv4.totalLen, IPV4_HEADER_LEN + TCP_HEADER_LEN);
+  truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
+
+  // Mark so it doesn't get caught in egress
+  modify_field(standard_metadata.instance_type, INSTANCE_TYPE_NORMAL);
+  modify_field(decoy_routing_metadata.isCopy, FALSE);
+  modify_field(decoy_routing_metadata.doClone, FALSE);
 }
 table open_covert_connection {
   actions {
@@ -134,6 +153,41 @@ table open_covert_connection {
 }
 
 
+table debug1 {
+  reads {
+    tcp.flags: exact;
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+    standard_metadata.instance_type: exact;
+    cpu_metadata.from_cpu: exact;
+    decoy_routing_metadata.isCopy: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 0;
+}
+
+
+table debug2 {
+  reads {
+    tcp.flags: exact;
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+    standard_metadata.instance_type: exact;
+    cpu_metadata.from_cpu: exact;
+    decoy_routing_metadata.isCopy: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 0;
+}
+
 // Take care of packet on its way out. In the normal case, simply update the
 // IP addresses and TCP ports, but extra work to do in connection set up.
 control handle_out_from_client {
@@ -141,11 +195,13 @@ control handle_out_from_client {
     // It must be the case that the CPU just recorded the flow for the first
     // time. In that case, it is time to start a new connection with the covert
     // destination.
+    apply(debug1);
     apply(close_connection);
   }
   if (decoy_routing_metadata.isCopy == TRUE) {
     // This packet should be sent to start a new connection to the covert
     // destination.
+    apply(debug2);
     apply(open_covert_connection);
   }
 }
@@ -207,5 +263,61 @@ control decoy_routing {
       // Flow hasn't been registered yet
       register_flow();
     }
+  }
+}
+
+
+// ----------------------------------------------------------------------------
+
+action do_decoy_clone() {
+  modify_field(decoy_routing_metadata.isCopy, TRUE);
+  clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, recirculate_fields);
+}
+table decoy_clone {
+  actions {
+    do_decoy_clone;
+  }
+  size: 0;
+}
+
+// ----------------------------------------------------------------------------
+
+// Control that should be called at the end of the ingress pipeline
+control decoy_routing_ingress_tail {
+  if (decoy_routing_metadata.doClone == TRUE) {
+    apply(decoy_clone);
+  }
+}
+
+// ----------------------------------------------------------------------------
+
+action do_recirculate() {
+  modify_field(decoy_routing_metadata.egress_used, TRUE);
+  recirculate(recirculate_fields);
+}
+table decoy_routing_recirculate {
+  actions {
+    do_recirculate;
+  }
+  size: 0;
+}
+
+// ----------------------------------------------------------------------------
+
+table debug_clone {
+  reads {
+    standard_metadata.instance_type: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 0;
+}
+
+// Logic for egress section.
+control decoy_egress {
+  apply(debug_clone);
+  if (standard_metadata.instance_type != 0 and decoy_routing_metadata.isCopy == TRUE) {
+    apply(decoy_routing_recirculate);
   }
 }

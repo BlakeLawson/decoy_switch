@@ -222,7 +222,7 @@ def main():
         CLI(net)
     else:
         # Make sure that the test has time to finish
-        sleep(8)
+        sleep(10)
 
     vprint('Shutting down')
 

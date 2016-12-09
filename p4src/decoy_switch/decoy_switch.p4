@@ -23,7 +23,6 @@ action set_nhop(nhop_ipv4, port) {
   modify_field(standard_metadata.egress_spec, port);
   add_to_field(ipv4.ttl, -1);
 }
-
 table ipv4_lpm {
   reads {
     ipv4.dstAddr: lpm;
@@ -35,10 +34,29 @@ table ipv4_lpm {
   size: 1024;
 }
 
+// update_smac used to overwrite src MAC address if the packet is being sent
+// by this switch.
+//
+// NOTE: this is pretty hack-y because in reality, we do not always know the
+// MAC address of neighbors, so this only works for this test environment.
+// Probably not a big deal for now.
+action do_update_smac(smac) {
+  modify_field(ethernet.srcAddr, smac);
+}
+table update_smac {
+  reads {
+    ipv4.srcAddr: lpm;
+  }
+  actions {
+    do_update_smac;
+    _no_op;
+  }
+  size: 1024;
+}
+
 action set_dmac(dmac) {
   modify_field(ethernet.dstAddr, dmac);
 }
-
 table forward {
   reads {
     routing_metadata.nhop_ipv4: exact;
@@ -52,6 +70,7 @@ table forward {
 
 control ipv4_ingress {
   apply(ipv4_lpm);
+  apply(update_smac);
   apply(forward);
 }
 
@@ -90,8 +109,31 @@ control ingress {
   if (valid(ipv4) and routing_metadata.do_route == TRUE) {
     ipv4_ingress();
   }
+
+  apply(dbg1);
+  decoy_routing_ingress_tail();
+  apply(dbg2);
 }
 
+table dbg1 {
+  reads {
+    standard_metadata.egress_spec: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size:0;
+}
+
+table dbg2 {
+  reads {
+    standard_metadata.egress_spec: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size:0;
+}
 /* EGRESS */
 
 action rewrite_mac(smac) {
@@ -123,11 +165,14 @@ table send_to_cpu {
 }
 
 control egress {
-  if (standard_metadata.instance_type == 0) {
-    // Regular packet ready to send
-    apply(send_frame);
-  } else {
-    // CPU packet
-    apply(send_to_cpu);
+  decoy_egress();
+  if (decoy_routing_metadata.egress_used == FALSE) {
+    if (standard_metadata.instance_type == INSTANCE_TYPE_NORMAL) {
+      // Regular packet ready to send
+      apply(send_frame);
+    } else {
+      // CPU packet
+      apply(send_to_cpu);
+    }
   }
 }
