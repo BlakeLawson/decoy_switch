@@ -203,6 +203,8 @@ and it still contains the GET request from the client.. Need to figure that
 out. As an aside, dealing with the P4 virtual switch can be a pain because it
 does not always conform to the spec. This time had issues because I wasn't
 cloning the packet using a mirrored port.
+* (12/10) Worked on presentation for next week. Made diagrams that can be used
+in presentation and the paper.
 
 Design Decisions
 ================
