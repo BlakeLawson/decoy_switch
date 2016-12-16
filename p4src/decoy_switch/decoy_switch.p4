@@ -134,6 +134,7 @@ table dbg2 {
   }
   size:0;
 }
+
 /* EGRESS */
 
 action rewrite_mac(smac) {

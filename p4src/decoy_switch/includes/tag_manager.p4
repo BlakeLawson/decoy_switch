@@ -24,6 +24,7 @@ header_type tagging_metadata_t {
     hash2: 16;
     res1: 1;
     res2: 1;
+    toCPU: 1;
   }
 }
 metadata tagging_metadata_t tagging_metadata;
@@ -115,10 +116,14 @@ table calculate_tag {
   size: 0;
 }
 
-
 action do_insert_syn() {
+  // Add SYN packet to bloom filter
   register_write(tagging_syn_counter1, tagging_metadata.hash1, 1);
   register_write(tagging_syn_counter2, tagging_metadata.hash2, 1);
+
+  // Also send packet to CPU to get TCP options
+  clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
+  modify_field(cpu_metadata.reason, CPU_REASON_GET_OPTIONS);
 }
 table insert_syn {
   actions {

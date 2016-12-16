@@ -5,6 +5,12 @@
  * Hash functions
  */
 
+/* Fields for clone to CPU */
+field_list copy_to_cpu_fields {
+  standard_metadata;
+  cpu_metadata;
+}
+
 /* ipv4 checksum */
 
 field_list ipv4_checksum_list {

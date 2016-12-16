@@ -46,7 +46,7 @@
 /* OTHER */
 #define ETHER_HEADER_LEN            14
 #define IPV4_HEADER_LEN             20
-#define TCP_HEADER_LEN              40
+#define TCP_HEADER_LEN              20
 
 /* P4 INSTANCE TYPES */
 #define INSTANCE_TYPE_NORMAL         0
@@ -56,3 +56,10 @@
 #define INSTANCE_TYPE_RECIRC         4
 #define INSTANCE_TYPE_REPLICATION    5
 #define INSTANCE_TYPE_RESUBMIT       6
+
+/* Port mirroring */
+#define CPU_MIRROR_SESSION_ID 250
+
+/* CPU Reason Flags */
+#define CPU_REASON_PARSE_COVERT   0xab
+#define CPU_REASON_GET_OPTIONS    0xac

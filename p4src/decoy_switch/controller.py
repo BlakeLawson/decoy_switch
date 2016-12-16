@@ -8,7 +8,7 @@ switch.
 The structure of this program is based on nat_app.py in the P4 NAT example:
 https://github.com/p4lang/tutorials/blob/master/examples/simple_nat/nat_app.py
 '''
-from scapy.all import Ether, sniff, sendp, TCP
+from scapy.all import Ether, sniff, sendp, TCP, IP
 from subprocess import Popen, PIPE
 from urlparse import urlparse
 
@@ -24,10 +24,6 @@ parser.add_argument('--json', action='store', type=str, required=True,
                     help='Path to JSON configuration for the switch')
 parser.add_argument('--thrift-port', action='store', type=str, required=True,
                     help='Thrift port used to send communicate with switch')
-# parser.add_argument('--proxy-addr', action='store', type=str, required=True,
-#                     help='Decoy proxy IP address.')
-# parser.add_argument('--proxy-port', action='store', type=str, required=True,
-#                     help='Decoy proxy port.')
 parser.add_argument('--switch-addr', action='store', type=str, required=True,
                     help='Decoy Switch IP address.')
 parser.add_argument('--interface', action='store', type=str, required=True,
@@ -35,13 +31,22 @@ parser.add_argument('--interface', action='store', type=str, required=True,
 parser.add_argument('-v', '--verbose', action='store_true', required=False)
 args = parser.parse_args()
 
+# Default port to be used if not included in covert destination address.
+DEFAULT_PORT = 8080
 
 # Store decoy routing requests seen so far. Maps client ip/port to deocy
 # ip/port.
 decoy_pairs = {}
 
-# Default port to be used if not included in covert destination address.
-DEFAULT_PORT = 8080
+# Store TCP options associated with a given connection. Maps tuple of (IP.src,
+# TCP.sport, IP.dst, TCP.dport) to TCP options.
+tcp_options = {}
+
+# Reason number to function mappings
+controller_functions = {
+    '\xab': lambda x: handle_parse_covert(x),
+    '\xac': lambda x: handle_get_options(x),
+}
 
 
 def vprint(s):
@@ -117,15 +122,22 @@ def process_cpu_packet(packet):
     # 0-7 : preamble
     # 8   : reason
     # 9-  : data packet (TCP)
-    if p_str[:8] != '\x00' * 8 or p_str[8] != '\xab':
+    if p_str[:8] != '\x00' * 8 or p_str[8] not in controller_functions:
         return
+    controller_functions[p_str[8]](p_str)
 
+
+def handle_parse_covert(p_str):
+    '''
+    Given string packet, read the covert destination and send it back to
+    the switch.
+    '''
     ip_hdr = None
     tcp_hdr = None
     try:
         p = Ether(p_str[9:])
-        ip_hdr = p['IP']
-        tcp_hdr = p['TCP']
+        ip_hdr = p[IP]
+        tcp_hdr = p[TCP]
     except Exception as e:
         vprint(e)
 
@@ -166,6 +178,26 @@ def process_cpu_packet(packet):
     # this packet.
     new_p = p_str[:8] + '\xac' + p_str[9:]
     sendp(new_p, iface=args.interface, verbose=args.verbose)
+
+
+def handle_get_options(p_str):
+    '''
+    Given string packet, record the TCP options.
+    '''
+    try:
+        p = Ether(p_str[9:])
+    except Exception as e:
+        vprint(e)
+
+    if TCP not in p or IP not in p:
+        return
+
+    k = (p[IP].src, p[TCP].sport, p[IP].dst, p[TCP].dport)
+    if k in tcp_options:
+        return
+
+    tcp_options[k] = p[TCP].options
+    vprint('saving options %s for %s' % (str(tcp_options[k]), str(k)))
 
 
 def main():

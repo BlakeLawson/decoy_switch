@@ -39,14 +39,6 @@ header_type decoy_routing_metadata_t {
 metadata decoy_routing_metadata_t decoy_routing_metadata;
 
 
-#define CPU_MIRROR_SESSION_ID 250
-#define CPU_PARSE_COVERT_REASON 0xab
-
-field_list copy_to_cpu_fields {
-  standard_metadata;
-  cpu_metadata;
-}
-
 field_list recirculate_fields {
   standard_metadata;
   decoy_routing_metadata;
@@ -112,6 +104,7 @@ control init_metadata {
 action do_close_connection() {
   modify_field(tcp.flags, TCP_FLAG_RST);
   modify_field(tcp.ackNo, 0);
+  modify_field(tcp.dataOffset, 5);
   modify_field(ipv4.totalLen, IPV4_HEADER_LEN + TCP_HEADER_LEN);
   truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
 
@@ -195,14 +188,14 @@ control handle_out_from_client {
     // It must be the case that the CPU just recorded the flow for the first
     // time. In that case, it is time to start a new connection with the covert
     // destination.
-    apply(debug1);
     apply(close_connection);
+    apply(debug1);
   }
   if (decoy_routing_metadata.isCopy == TRUE) {
     // This packet should be sent to start a new connection to the covert
     // destination.
-    apply(debug2);
     apply(open_covert_connection);
+    apply(debug2);
   }
 }
 
@@ -223,7 +216,7 @@ control handle_in_to_client {
 // Send the packet to CPU to read the covert destination and add the flow to
 // the tag mapping table.
 action do_parse_covert() {
-  modify_field(cpu_metadata.reason, CPU_PARSE_COVERT_REASON);
+  modify_field(cpu_metadata.reason, CPU_REASON_PARSE_COVERT);
   clone_ingress_pkt_to_egress(CPU_MIRROR_SESSION_ID, copy_to_cpu_fields);
 
   // Drop the packet. It will be sent once the controller is done
