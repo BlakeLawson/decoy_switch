@@ -55,7 +55,7 @@ def add_to_table(saddr, sport, daddr, dport, seq_diff):
     '''
     vprintf('Adding %d as table offset value\n' % seq_diff)
     sign = ''
-    if seq_diff > 0:
+    if seq_diff >= 0:
         sign = 'pos'
     else:
         sign = 'neg'

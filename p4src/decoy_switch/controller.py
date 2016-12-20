@@ -15,6 +15,7 @@ from urlparse import urlparse
 import argparse
 import socket
 import sys
+import threading
 
 # Set up parser for command line arguments
 parser = argparse.ArgumentParser(description='Decoy Switch Controller')
@@ -26,6 +27,8 @@ parser.add_argument('--thrift-port', action='store', type=str, required=True,
                     help='Thrift port used to send communicate with switch')
 parser.add_argument('--switch-addr', action='store', type=str, required=True,
                     help='Decoy Switch IP address.')
+parser.add_argument('--switch-mac', action='store', type=str, required=True,
+                    help='Decoy switch MAC address.')
 parser.add_argument('--interface', action='store', type=str, required=True,
                     help='Interface to send and receive packets.')
 parser.add_argument('-v', '--verbose', action='store_true', required=False)
@@ -34,18 +37,28 @@ args = parser.parse_args()
 # Default port to be used if not included in covert destination address.
 DEFAULT_PORT = 8080
 
-# Store decoy routing requests seen so far. Maps client ip/port to deocy
-# ip/port.
-decoy_pairs = {}
+# TCP flag
+SYN_FLAGS = 0x2
+
+# Store decoy routing requests seen so far. Maps 4-tuple to tuple of (seq
+# number, ack number). Used to calculate seq/ack offsets later on.
+seqack_base_lock = threading.Lock()
+seqack_base = {}
 
 # Store TCP options associated with a given connection. Maps tuple of (IP.src,
 # TCP.sport, IP.dst, TCP.dport) to TCP options.
+tcp_options_lock = threading.Lock()
 tcp_options = {}
+
+# Mark whether handle_offsets has seen the given packet already
+offsets_seen_lock = threading.Lock()
+offsets_seen = {}
 
 # Reason number to function mappings
 controller_functions = {
     '\xab': lambda x: handle_parse_covert(x),
     '\xac': lambda x: handle_get_options(x),
+    '\xad': lambda x: handle_offsets(x),
 }
 
 
@@ -68,12 +81,10 @@ def send_to_CLI(cmd):
     vprint(output)
 
 
-def add_to_table(client_ip, client_port, decoy_ip, decoy_port,
-                 covert_ip, covert_port=DEFAULT_PORT):
+def update_decoy_mapping_table(client_ip, client_port, decoy_ip, decoy_port,
+                               covert_ip, covert_port=DEFAULT_PORT):
     '''
     Add the given client/decoy pair to the switch's routing tables.
-
-    TODO: Figure out what is going on
     '''
     # Add the packet to the decoy switch routing table
     outbound_cmd = 'table_add check_mappings out_from_client %s %s %s %s ' + \
@@ -142,9 +153,9 @@ def handle_parse_covert(p_str):
         vprint(e)
 
     # Don't reprocess packet
-    if (ip_hdr.src, tcp_hdr.sport) in decoy_pairs:
+    params = (ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport)
+    if params not in tcp_options:
         return
-    decoy_pairs[(ip_hdr.src, tcp_hdr.sport)] = (ip_hdr.dst, tcp_hdr.dport)
 
     vprint('Packet received')
     vprint(p.summary())
@@ -169,15 +180,32 @@ def handle_parse_covert(p_str):
 
     covert_port = url.port if url.port is not None else DEFAULT_PORT
 
+    # Update dict with info
+    k = (covert_ip, covert_port, args.switch_addr, tcp_hdr.sport)
+    seqack_base_lock.acquire()
+    if k in seqack_base:
+        seqack_base_lock.release()
+        return
+    seqack_base[k] = (tcp_hdr.seq, tcp_hdr.ack)
+    seqack_base_lock.release()
     vprint('Decoded covert %s:%d' % (covert_ip, covert_port))
 
-    add_to_table(ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport,
-                 covert_ip, covert_port)
+    update_decoy_mapping_table(ip_hdr.src, tcp_hdr.sport, ip_hdr.dst,
+                               tcp_hdr.dport, covert_ip, covert_port)
 
-    # Send packet back to switch. Use hachy solution to avoid reprocessing
+    # Send packet back to switch. Use hacky solution to avoid reprocessing
     # this packet.
-    new_p = p_str[:8] + '\xac' + p_str[9:]
+    new_p = p_str[:8] + '\x00' + p_str[9:]
     sendp(new_p, iface=args.interface, verbose=args.verbose)
+
+    # Create the initial SYN packet for the connection to the covert
+    # destination and send it back to the switch.
+    covert_syn = Ether(src=args.switch_mac)
+    covert_syn = covert_syn/IP(src=args.switch_addr, dst=covert_ip)
+    covert_syn = covert_syn/TCP(sport=tcp_hdr.sport, dport=covert_port,
+                                flags=SYN_FLAGS, options=tcp_options[params],
+                                seq=tcp_hdr.seq)
+    sendp(covert_syn, iface=args.interface, verbose=args.verbose)
 
 
 def handle_get_options(p_str):
@@ -193,11 +221,96 @@ def handle_get_options(p_str):
         return
 
     k = (p[IP].src, p[TCP].sport, p[IP].dst, p[TCP].dport)
+    tcp_options_lock.acquire()
     if k in tcp_options:
+        tcp_options_lock.release()
+        return
+    tcp_options[k] = p[TCP].options
+    tcp_options_lock.release()
+
+    vprint('saving options %s for %s' % (str(tcp_options[k]), str(k)))
+
+
+def update_seqack_table(saddr, sport, daddr, dport, seq_diff, ack_diff):
+    '''
+    Given information about the packet, add seq and ack differences to the
+    switch table.
+    '''
+    vprintf('Adding %d as table offset value\n' % seq_diff)
+    seq_sign = ''
+    if seq_diff >= 0:
+        seq_sign = 'pos'
+    else:
+        seq_sign = 'neg'
+        seq_diff *= -1
+
+    ack_sign = ''
+    if ack_diff >= 0:
+        ack_sign = 'pos'
+    else:
+        ack_sign = 'neg'
+        ack_diff *= -1
+
+    # Handle sequence numbers
+    seq_outbound_cmd = 'table_add seq_offset %s_seq_outbound %s %s %s %s => %d'
+    seq_inbound_cmd = 'table_add seq_offset %s_seq_inbound %s %s %s %s => %d'
+    ack_outbound_cmd = 'table_add ack_offset %s_ack_outbound %s %s %s %s => %d'
+    ack_inbound_cmd = 'table_add ack_offset %s_ack_inbound %s %s %s %s => %d'
+
+    # In outbound case, src and dst are the same as the current packet
+    params = (seq_sign, saddr, sport, daddr, dport, seq_diff)
+    send_to_CLI(seq_outbound_cmd % params)
+
+    params = (ack_sign, saddr, sport, daddr, dport, seq_diff)
+    send_to_CLI(ack_outbound_cmd % params)
+
+    # In inbound case, src and dst are reversed
+    params = (seq_sign, daddr, dport, saddr, sport, seq_diff)
+    send_to_CLI(seq_inbound_cmd % params)
+
+    params = (ack_sign, daddr, dport, saddr, sport, seq_diff)
+    send_to_CLI(ack_inbound_cmd % params)
+
+
+def handle_offsets(p_str):
+    '''
+    Given packet from covert destination, record the difference between the
+    seq and ack numbers for the two connections.
+    '''
+    try:
+        p = Ether(p_str[9:])
+    except Exception as e:
+        vprint(e)
+
+    if TCP not in p or IP not in p:
         return
 
-    tcp_options[k] = p[TCP].options
-    vprint('saving options %s for %s' % (str(tcp_options[k]), str(k)))
+    k = (p[IP].src, p[TCP].sport, p[IP].dst, p[TCP].dport)
+    offsets_seen_lock.acquire()
+    if k not in seqack_base or k in offsets_seen:
+        offsets_seen_lock.release()
+        return
+    offsets_seen[k] = ''
+    offsets_seen_lock.release()
+
+    vprint('got a packet to compute offsets')
+
+    old_seq, old_ack = seqack_base[k]
+
+    covert_seq = p[TCP].seq
+    covert_ack = p[TCP].ack
+
+    seq_diff = covert_ack - old_seq
+    ack_diff = covert_seq - old_ack
+
+    # Switch src and dst because inbound and outbound are maintained with
+    # respect to the client.
+    update_seqack_table(p[IP].dst, p[TCP].dport, p[IP].src, p[TCP].sport,
+                        seq_diff, ack_diff)
+
+    # Send packet back to switch
+    new_p = p_str[:8] + '\x00' + p_str[9:]
+    sendp(new_p, iface=args.interface, verbose=args.verbose)
 
 
 def main():

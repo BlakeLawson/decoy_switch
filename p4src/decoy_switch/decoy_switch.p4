@@ -85,16 +85,28 @@ table remove_cpu_header {
   size: 0;
 }
 
+table debug {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size: 0;
+}
+
 control tcp_ingress {
+  apply(debug);
   if (cpu_metadata.from_cpu == TRUE) {
     apply(remove_cpu_header);
   }
 
   // Take care of tag detection/handling
   tagging();
-  if (tagging_metadata.ready_for_routing == TRUE) {
-    decoy_routing();
-  }
+  decoy_routing();
 }
 
 /* MAIN INGRESS */

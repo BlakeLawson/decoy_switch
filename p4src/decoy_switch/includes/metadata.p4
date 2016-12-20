@@ -5,16 +5,30 @@
 
 /* Intrinsic data defined as recommended for switch emulator */
 header_type intrinsic_metadata_t {
-    fields {
-        ingress_global_timestamp : 48;
-        lf_field_list : 8;
-        mcast_grp : 16;
-        egress_rid : 16;
-        resubmit_flag : 8;
-        recirculate_flag : 8;
-    }
+  fields {
+    ingress_global_timestamp : 48;
+    lf_field_list : 8;
+    mcast_grp : 16;
+    egress_rid : 16;
+    resubmit_flag : 8;
+    recirculate_flag : 8;
+  }
 }
 metadata intrinsic_metadata_t intrinsic_metadata;
+
+
+/* Temporary variables */
+header_type scratch_t {
+  fields {
+    s1: 1;
+    s4: 4;
+    s8: 8;
+    s16: 16;
+    s32: 32;
+    s48: 48;
+  }
+}
+metadata scratch_t scratch;
 
 
 /* IPv4 Routing */

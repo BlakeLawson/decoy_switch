@@ -63,6 +63,7 @@ sudo python $TOP_DIR/p4src/decoy_switch/controller.py \
     --cli $CLI_PATH \
     --json $TOP_DIR/p4src/decoy_switch/decoy_switch.json \
     --switch-addr "10.0.0.10" \
+    --switch-mac "00:00:00:00:00:10" \
     --thrift-port 22222 \
     --interface $inf0 \
     --verbose \

@@ -27,6 +27,8 @@ header_type decoy_routing_metadata_t {
     egress_used: 1;
     isCopy: 1;
     doClone: 1;
+    doDrop: 1;
+    doRecirc: 1;
     synAck: 1;
     inToClient: 1;
     outFromClient: 1;
@@ -39,11 +41,19 @@ header_type decoy_routing_metadata_t {
 metadata decoy_routing_metadata_t decoy_routing_metadata;
 
 
+// Fields to include in recirculated packet.
 field_list recirculate_fields {
   standard_metadata;
   decoy_routing_metadata;
+  cpu_metadata;
 }
 
+
+// ----------------------------------------------------------------------------
+
+action decoy_done() {
+  modify_field(decoy_routing_metadata.done, TRUE);
+}
 
 // ----------------------------------------------------------------------------
 
@@ -90,12 +100,163 @@ table check_mappings {
 
 
 control init_metadata {
-  if (tcp.flags == TCP_FLAG_SYN | TCP_FLAG_ACK) {
+  if (tcp.flags == TCP_FLAG_SYNACK) {
     apply(set_synack_metadata);
   }
   apply(check_mappings);
 }
 
+
+// ----------------------------------------------------------------------------
+
+// Convert the syn-ack from the covert dst to an ack back to the covert.
+// TODO: I'm pretty sure that the TCP timestamp isn't going to work.
+action do_make_covert_ack() {
+  // Swap IP src and dst
+  modify_field(scratch.s32, ipv4.srcAddr);
+  modify_field(ipv4.srcAddr, ipv4.dstAddr);
+  modify_field(ipv4.dstAddr, scratch.s32);
+
+  // Swap TCP ports
+  modify_field(scratch.s16, tcp.srcPort);
+  modify_field(tcp.srcPort, tcp.dstPort);
+  modify_field(tcp.dstPort, scratch.s16);
+
+  // Set seq and ack numbers
+  modify_field(scratch.s32, tcp.seqNo);
+  modify_field(tcp.seqNo, tcp.ackNo);
+  modify_field(tcp.ackNo, scratch.s32 + 1);
+
+  // Update flags
+  modify_field(tcp.flags, TCP_FLAG_ACK);
+
+  // Recirculate the packet to reuse for client ack.
+  modify_field(decoy_routing_metadata.doClone, TRUE);
+  modify_field(decoy_routing_metadata.doRecirc, TRUE);
+}
+table make_covert_ack {
+  actions {
+    do_make_covert_ack;
+  }
+  size: 0;
+}
+
+// Convert the syn-ack from the covert dst to an ack back to the client.
+// TODO: Pretty sure that TCP options aren't going to work.
+action do_make_client_ack() {
+  modify_field(tcp.flags, TCP_FLAG_ACK);
+
+  // Clean up metadata
+  modify_field(decoy_routing_metadata.doClone, FALSE);
+  modify_field(decoy_routing_metadata.doRecirc, FALSE);
+  modify_field(decoy_routing_metadata.done, TRUE);
+}
+table make_client_ack {
+  actions {
+    do_make_client_ack;
+  }
+  size: 0;
+}
+
+
+// Convert packet into ACK response to covert destination and an ACK for the
+// client.
+control finish_connections {
+  if (decoy_routing_metadata.isCopy == FALSE) {
+    apply(make_covert_ack);
+  } else {
+    apply(make_client_ack);
+  }
+}
+
+// ----------------------------------------------------------------------------
+
+action do_swap_srcdst() {
+  modify_field(ipv4.srcAddr, decoy_routing_metadata.newIpSrc);
+  modify_field(ipv4.dstAddr, decoy_routing_metadata.newIpDst);
+  modify_field(tcp.srcPort, decoy_routing_metadata.newTcpSport);
+  modify_field(tcp.dstPort, decoy_routing_metadata.newTcpDport);
+}
+table swap_srcdst {
+  actions {
+    do_swap_srcdst;
+  }
+  size: 0;
+}
+
+action pos_seq_outbound(seq_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo - seq_diff);
+}
+
+action neg_seq_outbound(seq_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo + seq_diff);
+}
+
+action pos_seq_inbound(seq_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo + seq_diff);
+}
+
+action neg_seq_inbound(seq_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo - seq_diff);
+}
+
+table seq_offset {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+  }
+  actions {
+    pos_seq_outbound;
+    neg_seq_outbound;
+    pos_seq_inbound;
+    neg_seq_inbound;
+    _drop;
+  }
+  size: 256;
+}
+
+
+action pos_ack_outbound(ack_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo - ack_diff);
+}
+
+action neg_ack_outbound(ack_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo + ack_diff);
+}
+
+action pos_ack_inbound(ack_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo + ack_diff);
+}
+
+action neg_ack_inbound(ack_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo - ack_diff);
+}
+
+table ack_offset {
+  reads {
+    ipv4.srcAddr: exact;
+    tcp.srcPort: exact;
+    ipv4.dstAddr: exact;
+    tcp.dstPort: exact;
+  }
+  actions {
+    pos_ack_outbound;
+    neg_ack_outbound;
+    pos_ack_inbound;
+    neg_ack_inbound;
+    _drop;
+  }
+  size: 256;
+}
+
+// Remap seq and ack numbers
+control normal_remapping {
+  apply(swap_srcdst);
+  apply(seq_offset);
+  apply(ack_offset);
+}
 
 // ----------------------------------------------------------------------------
 
@@ -107,9 +268,6 @@ action do_close_connection() {
   modify_field(tcp.dataOffset, 5);
   modify_field(ipv4.totalLen, IPV4_HEADER_LEN + TCP_HEADER_LEN);
   truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
-
-  // Recirculate the packet in order to send SYN to covert
-  modify_field(decoy_routing_metadata.doClone, TRUE);
 }
 table close_connection {
   actions {
@@ -117,34 +275,6 @@ table close_connection {
   }
   size: 0;
 }
-
-
-// Convert the packet into a SYN packet to the covert destination.
-//
-// TODO: Debug this. Think about how to calculate the seq and ack differences
-action do_open_covert_connection() {
-  modify_field(ipv4.srcAddr, decoy_routing_metadata.newIpSrc);
-  modify_field(ipv4.dstAddr, decoy_routing_metadata.newIpDst);
-  modify_field(tcp.srcPort, decoy_routing_metadata.newTcpSport);
-  modify_field(tcp.dstPort, decoy_routing_metadata.newTcpDport);
-
-  modify_field(tcp.flags, TCP_FLAG_SYN);
-  modify_field(tcp.ackNo, 0);
-  modify_field(ipv4.totalLen, IPV4_HEADER_LEN + TCP_HEADER_LEN);
-  truncate(ETHER_HEADER_LEN + IPV4_HEADER_LEN + TCP_HEADER_LEN);  // Discard the payload
-
-  // Mark so it doesn't get caught in egress
-  modify_field(standard_metadata.instance_type, INSTANCE_TYPE_NORMAL);
-  modify_field(decoy_routing_metadata.isCopy, FALSE);
-  modify_field(decoy_routing_metadata.doClone, FALSE);
-}
-table open_covert_connection {
-  actions {
-    do_open_covert_connection;
-  }
-  size: 0;
-}
-
 
 table debug1 {
   reads {
@@ -181,6 +311,13 @@ table debug2 {
   size: 0;
 }
 
+table out_from_client_done {
+  actions {
+    decoy_done;
+  }
+  size: 0;
+}
+
 // Take care of packet on its way out. In the normal case, simply update the
 // IP addresses and TCP ports, but extra work to do in connection set up.
 control handle_out_from_client {
@@ -191,22 +328,63 @@ control handle_out_from_client {
     apply(close_connection);
     apply(debug1);
   }
-  if (decoy_routing_metadata.isCopy == TRUE) {
-    // This packet should be sent to start a new connection to the covert
-    // destination.
-    apply(open_covert_connection);
-    apply(debug2);
+
+  // Else case. Using if to avoid nesting
+  if (cpu_metadata.from_cpu == FALSE and decoy_routing_metadata.isCopy == FALSE) {
+    apply(out_from_client_done);
   }
 }
 
 
 // ----------------------------------------------------------------------------
 
+action do_store_seqack() {
+  modify_field(cpu_metadata.reason, CPU_REASON_STORE_SYNACK);
+  modify_field(decoy_routing_metadata.doClone, TRUE);
+  modify_field(decoy_routing_metadata.doDrop, TRUE);
+}
+table store_seqack {
+  actions {
+    do_store_seqack;
+  }
+  size: 0;
+}
+
+table here {
+  reads {
+    decoy_routing_metadata.synAck: exact;
+    cpu_metadata.from_cpu: exact;
+    tcp.flags: exact;
+  }
+  actions {
+    _no_op;
+  }
+  size:0;
+}
+
+table in_to_client_done {
+  actions {
+    decoy_done;
+  }
+  size: 0;
+}
+
 
 // Take care of packet on its way back to client. In normal case, update IP
 // addresses and TCP ports. Extra work required in connection set up.
 control handle_in_to_client {
-  
+  apply(here);
+  if (decoy_routing_metadata.synAck == TRUE and cpu_metadata.from_cpu == FALSE) {
+    // Store Seq/Ack offset
+    apply(store_seqack);
+  }
+  if (decoy_routing_metadata.synAck == TRUE and cpu_metadata.from_cpu == TRUE) {
+    // Finish TCP handshake and respond to client
+    finish_connections();
+  }
+  if (decoy_routing_metadata.synAck == FALSE) {
+    apply(in_to_client_done);
+  }
 }
 
 
@@ -253,9 +431,11 @@ control decoy_routing {
     if (decoy_routing_metadata.inToClient == TRUE) {
       handle_in_to_client();
     } else {
-      // Flow hasn't been registered yet
       register_flow();
     }
+  }
+  if (decoy_routing_metadata.done == TRUE) {
+    normal_remapping();
   }
 }
 
@@ -275,10 +455,22 @@ table decoy_clone {
 
 // ----------------------------------------------------------------------------
 
+table drop_table {
+  actions {
+    _drop;
+  }
+  size: 0;
+}
+
+// ----------------------------------------------------------------------------
+
 // Control that should be called at the end of the ingress pipeline
 control decoy_routing_ingress_tail {
   if (decoy_routing_metadata.doClone == TRUE) {
     apply(decoy_clone);
+  }
+  if (decoy_routing_metadata.doDrop == TRUE) {
+    apply(drop_table);
   }
 }
 
@@ -297,20 +489,9 @@ table decoy_routing_recirculate {
 
 // ----------------------------------------------------------------------------
 
-table debug_clone {
-  reads {
-    standard_metadata.instance_type: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size: 0;
-}
-
 // Logic for egress section.
 control decoy_egress {
-  apply(debug_clone);
-  if (standard_metadata.instance_type != 0 and decoy_routing_metadata.isCopy == TRUE) {
+  if (standard_metadata.instance_type != 0 and decoy_routing_metadata.doRecirc == TRUE) {
     apply(decoy_routing_recirculate);
   }
 }

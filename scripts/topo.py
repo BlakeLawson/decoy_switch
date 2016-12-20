@@ -194,25 +194,25 @@ def main():
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
-    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy.pcap ' +
+    proxy.cmd('sudo tcpdump -v -i proxy-eth0 -s 0 -w log/proxy.pcap ' +
               '&> /dev/null &')
     proxy.cmd('go run src/main/proxy.go -port 8888 -file /dev/null ' +
               '&> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy')
-    decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy.pcap ' +
+    decoy.cmd('sudo tcpdump -v -s 0 -i decoy-eth0 -w log/decoy.pcap ' +
               '&> /dev/null &')
     decoy.cmd('go run src/main/server.go -f src/server/decoy.html ' +
               '&> log/decoy.log &')
 
     covert = net.getNodeByName('covert')
-    covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert.pcap ' +
+    covert.cmd('sudo tcpdump -v -s 0 -i covert-eth0 -w log/covert.pcap ' +
                '&> /dev/null &')
     covert.cmd('go run src/main/server.go -f src/server/covert.html ' +
                '&> log/covert.log &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client.pcap ' +
+    client.cmd('sudo tcpdump -v -s 0 -i covert-eth0 -w log/client.pcap ' +
                '&> /dev/null &')
     client.cmd('go run src/main/client.go -decoy "10.0.0.3:8080" ' +
                '-covert "10.0.0.4:8080" &> log/client.log &')
