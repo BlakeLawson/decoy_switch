@@ -55,6 +55,10 @@ action decoy_done() {
   modify_field(decoy_routing_metadata.done, TRUE);
 }
 
+action decoy_drop() {
+  modify_field(decoy_routing_metadata.doDrop, TRUE);
+}
+
 // ----------------------------------------------------------------------------
 
 
@@ -94,6 +98,7 @@ table check_mappings {
     out_from_client;
     in_to_client;
     _no_op;
+    decoy_drop; // Temporary solution to FIN, ACK from decoy
   }
   size: 256;
 }
@@ -277,24 +282,6 @@ table close_connection {
 }
 
 table debug1 {
-  reads {
-    tcp.flags: exact;
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-    standard_metadata.instance_type: exact;
-    cpu_metadata.from_cpu: exact;
-    decoy_routing_metadata.isCopy: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size: 0;
-}
-
-
-table debug2 {
   reads {
     tcp.flags: exact;
     ipv4.srcAddr: exact;

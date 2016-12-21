@@ -212,7 +212,7 @@ def main():
                '&> log/covert.log &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i covert-eth0 -w log/client.pcap ' +
+    client.cmd('sudo tcpdump -v -s 0 -i client-eth0 -w log/client.pcap ' +
                '&> /dev/null &')
     client.cmd('go run src/main/client.go -decoy "10.0.0.3:8080" ' +
                '-covert "10.0.0.4:8080" &> log/client.log &')

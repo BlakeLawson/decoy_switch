@@ -91,6 +91,7 @@ def update_decoy_mapping_table(client_ip, client_port, decoy_ip, decoy_port,
                    '=> %s %s %s %s'
     inbound_cmd = 'table_add check_mappings in_to_client %s %s %s %s ' + \
                   '=> %s %s %s %s'
+    close_decoy_cmd = 'table_add check_mappings decoy_drop %s %s %s %s =>'
 
     # In outbound case, key is the client-decoy pair and val is switch-covert
     # pair.
@@ -121,6 +122,16 @@ def update_decoy_mapping_table(client_ip, client_port, decoy_ip, decoy_port,
         client_port,        # New TCP dport
     )
     send_to_CLI(inbound_cmd % params)
+
+    # Add command that drops all future packets from the decoy. Not a great
+    # solution but will end FIN, ACK that comes after RST for now.
+    params = (
+        decoy_ip,
+        decoy_port,
+        client_ip,
+        client_port,
+    )
+    send_to_CLI(close_decoy_cmd % params)
 
 
 def process_cpu_packet(packet):
@@ -186,7 +197,8 @@ def handle_parse_covert(p_str):
     if k in seqack_base:
         seqack_base_lock.release()
         return
-    seqack_base[k] = (tcp_hdr.seq, tcp_hdr.ack)
+    seqack_base[k] = (tcp_hdr.seq, tcp_hdr.ack, ip_hdr.src,
+                      tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport)
     seqack_base_lock.release()
     vprint('Decoded covert %s:%d' % (covert_ip, covert_port))
 
@@ -231,7 +243,9 @@ def handle_get_options(p_str):
     vprint('saving options %s for %s' % (str(tcp_options[k]), str(k)))
 
 
-def update_seqack_table(saddr, sport, daddr, dport, seq_diff, ack_diff):
+def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
+                        decoy_port, switch_ip, switch_port, covert_ip,
+                        covert_port):
     '''
     Given information about the packet, add seq and ack differences to the
     switch table.
@@ -251,6 +265,8 @@ def update_seqack_table(saddr, sport, daddr, dport, seq_diff, ack_diff):
         ack_sign = 'neg'
         ack_diff *= -1
 
+    vprintf('updated seq_diff:%d ack_diff:%d\n' % (seq_diff, ack_diff))
+
     # Handle sequence numbers
     seq_outbound_cmd = 'table_add seq_offset %s_seq_outbound %s %s %s %s => %d'
     seq_inbound_cmd = 'table_add seq_offset %s_seq_inbound %s %s %s %s => %d'
@@ -258,17 +274,49 @@ def update_seqack_table(saddr, sport, daddr, dport, seq_diff, ack_diff):
     ack_inbound_cmd = 'table_add ack_offset %s_ack_inbound %s %s %s %s => %d'
 
     # In outbound case, src and dst are the same as the current packet
-    params = (seq_sign, saddr, sport, daddr, dport, seq_diff)
+    params = (
+        seq_sign,
+        switch_ip,
+        switch_port,
+        covert_ip,
+        covert_port,
+        seq_diff,
+    )
+    vprint('Sending command %s' % (seq_outbound_cmd % params))
     send_to_CLI(seq_outbound_cmd % params)
 
-    params = (ack_sign, saddr, sport, daddr, dport, seq_diff)
+    params = (
+        ack_sign,
+        switch_ip,
+        switch_port,
+        covert_ip,
+        covert_port,
+        ack_diff,
+    )
+    vprint('Sending command %s' % (ack_outbound_cmd % params))
     send_to_CLI(ack_outbound_cmd % params)
 
     # In inbound case, src and dst are reversed
-    params = (seq_sign, daddr, dport, saddr, sport, seq_diff)
+    params = (
+        seq_sign,
+        decoy_ip,
+        decoy_port,
+        client_ip,
+        client_port,
+        seq_diff,
+    )
+    vprint('Sending command %s' % (seq_outbound_cmd % params))
     send_to_CLI(seq_inbound_cmd % params)
 
-    params = (ack_sign, daddr, dport, saddr, sport, seq_diff)
+    params = (
+        ack_sign,
+        decoy_ip,
+        decoy_port,
+        client_ip,
+        client_port,
+        ack_diff,
+    )
+    vprint('Sending command %s' % (ack_outbound_cmd % params))
     send_to_CLI(ack_inbound_cmd % params)
 
 
@@ -295,7 +343,7 @@ def handle_offsets(p_str):
 
     vprint('got a packet to compute offsets')
 
-    old_seq, old_ack = seqack_base[k]
+    old_seq, old_ack, c_addr, c_port, d_addr, d_port = seqack_base[k]
 
     covert_seq = p[TCP].seq
     covert_ack = p[TCP].ack
@@ -303,10 +351,12 @@ def handle_offsets(p_str):
     seq_diff = covert_ack - old_seq
     ack_diff = covert_seq - old_ack
 
+    vprintf('covert_seq:%d covert_ack:%d old_seq:%d old_ack:%d seq_diff:%d ack_diff:%d\n' % (covert_seq, covert_ack, old_seq, old_ack, seq_diff, ack_diff))
+
     # Switch src and dst because inbound and outbound are maintained with
     # respect to the client.
-    update_seqack_table(p[IP].dst, p[TCP].dport, p[IP].src, p[TCP].sport,
-                        seq_diff, ack_diff)
+    update_seqack_table(seq_diff, ack_diff, c_addr, c_port, d_addr, d_port,
+                        p[IP].dst, p[TCP].dport, p[IP].src, p[TCP].sport)
 
     # Send packet back to switch
     new_p = p_str[:8] + '\x00' + p_str[9:]
