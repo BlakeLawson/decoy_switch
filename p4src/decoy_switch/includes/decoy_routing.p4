@@ -190,19 +190,19 @@ table swap_srcdst {
 }
 
 action pos_seq_outbound(seq_diff) {
-  modify_field(tcp.seqNo, tcp.seqNo - seq_diff);
-}
-
-action neg_seq_outbound(seq_diff) {
   modify_field(tcp.seqNo, tcp.seqNo + seq_diff);
 }
 
+action neg_seq_outbound(seq_diff) {
+  modify_field(tcp.seqNo, tcp.seqNo - seq_diff);
+}
+
 action pos_seq_inbound(seq_diff) {
-  modify_field(tcp.ackNo, tcp.ackNo + seq_diff);
+  modify_field(tcp.ackNo, tcp.ackNo - seq_diff);
 }
 
 action neg_seq_inbound(seq_diff) {
-  modify_field(tcp.ackNo, tcp.ackNo - seq_diff);
+  modify_field(tcp.ackNo, tcp.ackNo + seq_diff);
 }
 
 table seq_offset {
@@ -224,19 +224,19 @@ table seq_offset {
 
 
 action pos_ack_outbound(ack_diff) {
-  modify_field(tcp.ackNo, tcp.ackNo - ack_diff);
-}
-
-action neg_ack_outbound(ack_diff) {
   modify_field(tcp.ackNo, tcp.ackNo + ack_diff);
 }
 
+action neg_ack_outbound(ack_diff) {
+  modify_field(tcp.ackNo, tcp.ackNo - ack_diff);
+}
+
 action pos_ack_inbound(ack_diff) {
-  modify_field(tcp.seqNo, tcp.seqNo + ack_diff);
+  modify_field(tcp.seqNo, tcp.seqNo - ack_diff);
 }
 
 action neg_ack_inbound(ack_diff) {
-  modify_field(tcp.seqNo, tcp.seqNo - ack_diff);
+  modify_field(tcp.seqNo, tcp.seqNo + ack_diff);
 }
 
 table ack_offset {
