@@ -111,69 +111,6 @@ control init_metadata {
   apply(check_mappings);
 }
 
-
-// ----------------------------------------------------------------------------
-
-// Convert the syn-ack from the covert dst to an ack back to the covert.
-// TODO: I'm pretty sure that the TCP timestamp isn't going to work.
-action do_make_covert_ack() {
-  // Swap IP src and dst
-  modify_field(scratch.s32, ipv4.srcAddr);
-  modify_field(ipv4.srcAddr, ipv4.dstAddr);
-  modify_field(ipv4.dstAddr, scratch.s32);
-
-  // Swap TCP ports
-  modify_field(scratch.s16, tcp.srcPort);
-  modify_field(tcp.srcPort, tcp.dstPort);
-  modify_field(tcp.dstPort, scratch.s16);
-
-  // Set seq and ack numbers
-  modify_field(scratch.s32, tcp.seqNo);
-  modify_field(tcp.seqNo, tcp.ackNo);
-  modify_field(tcp.ackNo, scratch.s32 + 1);
-
-  // Update flags
-  modify_field(tcp.flags, TCP_FLAG_ACK);
-
-  // Recirculate the packet to reuse for client ack.
-  modify_field(decoy_routing_metadata.doClone, TRUE);
-  modify_field(decoy_routing_metadata.doRecirc, TRUE);
-}
-table make_covert_ack {
-  actions {
-    do_make_covert_ack;
-  }
-  size: 0;
-}
-
-// Convert the syn-ack from the covert dst to an ack back to the client.
-// TODO: Pretty sure that TCP options aren't going to work.
-action do_make_client_ack() {
-  modify_field(tcp.flags, TCP_FLAG_ACK);
-
-  // Clean up metadata
-  modify_field(decoy_routing_metadata.doClone, FALSE);
-  modify_field(decoy_routing_metadata.doRecirc, FALSE);
-  modify_field(decoy_routing_metadata.done, TRUE);
-}
-table make_client_ack {
-  actions {
-    do_make_client_ack;
-  }
-  size: 0;
-}
-
-
-// Convert packet into ACK response to covert destination and an ACK for the
-// client.
-control finish_connections {
-  if (decoy_routing_metadata.isCopy == FALSE) {
-    apply(make_covert_ack);
-  } else {
-    apply(make_client_ack);
-  }
-}
-
 // ----------------------------------------------------------------------------
 
 action do_swap_srcdst() {
@@ -326,13 +263,61 @@ control handle_out_from_client {
 // ----------------------------------------------------------------------------
 
 action do_store_seqack() {
+  // Clone the packet to send to the CPU to record the seq/ack differences.
   modify_field(cpu_metadata.reason, CPU_REASON_STORE_SYNACK);
   modify_field(decoy_routing_metadata.doClone, TRUE);
-  modify_field(decoy_routing_metadata.doDrop, TRUE);
+
+  // Convert the packet into an ACK for the covert
+
+  // Swap IP src and dst
+  modify_field(scratch.s32, ipv4.srcAddr);
+  modify_field(ipv4.srcAddr, ipv4.dstAddr);
+  modify_field(ipv4.dstAddr, scratch.s32);
+
+  // Swap TCP ports
+  modify_field(scratch.s16, tcp.srcPort);
+  modify_field(tcp.srcPort, tcp.dstPort);
+  modify_field(tcp.dstPort, scratch.s16);
+
+  // Set seq and ack numbers
+  modify_field(scratch.s32, tcp.seqNo);
+  modify_field(tcp.seqNo, tcp.ackNo);
+  modify_field(tcp.ackNo, scratch.s32 + 1);
+
+  // Update flags
+  modify_field(tcp.flags, TCP_FLAG_ACK);
 }
 table store_seqack {
   actions {
     do_store_seqack;
+  }
+  size: 0;
+}
+
+// ----------------------------------------------------------------------------
+
+// Convert the syn-ack from the covert dst to an ack back to the client.
+// TODO: Pretty sure that TCP options aren't going to work.
+action do_make_client_ack() {
+  modify_field(tcp.flags, TCP_FLAG_ACK);
+
+  // Clean up metadata
+  modify_field(decoy_routing_metadata.doClone, FALSE);
+  modify_field(decoy_routing_metadata.doRecirc, FALSE);
+  modify_field(decoy_routing_metadata.done, TRUE);
+}
+table make_client_ack {
+  actions {
+    do_make_client_ack;
+  }
+  size: 0;
+}
+
+// ----------------------------------------------------------------------------
+
+table in_to_client_done {
+  actions {
+    decoy_done;
   }
   size: 0;
 }
@@ -349,14 +334,9 @@ table here {
   size:0;
 }
 
-table in_to_client_done {
-  actions {
-    decoy_done;
-  }
-  size: 0;
-}
-
-
+// TODO: Finish TCP handshake with the covert destination before sending packet
+// to the CPU to save ack mappings.
+//
 // Take care of packet on its way back to client. In normal case, update IP
 // addresses and TCP ports. Extra work required in connection set up.
 control handle_in_to_client {
@@ -367,7 +347,7 @@ control handle_in_to_client {
   }
   if (decoy_routing_metadata.synAck == TRUE and cpu_metadata.from_cpu == TRUE) {
     // Finish TCP handshake and respond to client
-    finish_connections();
+    apply(make_client_ack);
   }
   if (decoy_routing_metadata.synAck == FALSE) {
     apply(in_to_client_done);

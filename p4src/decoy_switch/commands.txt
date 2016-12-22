@@ -50,7 +50,6 @@ table_set_default decoy_clone do_decoy_clone
 table_set_default decoy_routing_recirculate do_recirculate
 table_set_default seq_offset _drop
 table_set_default ack_offset _drop
-table_set_default make_covert_ack do_make_covert_ack
 table_set_default make_client_ack do_make_client_ack
 table_set_default swap_srcdst do_swap_srcdst
 table_set_default out_from_client_done decoy_done

@@ -349,7 +349,7 @@ def handle_offsets(p_str):
     covert_ack = p[TCP].ack
 
     seq_diff = covert_ack - old_seq
-    ack_diff = covert_seq - old_ack
+    ack_diff = covert_seq - old_ack + 1
 
     vprintf('covert_seq:%d covert_ack:%d old_seq:%d old_ack:%d seq_diff:%d ack_diff:%d\n' % (covert_seq, covert_ack, old_seq, old_ack, seq_diff, ack_diff))
 
