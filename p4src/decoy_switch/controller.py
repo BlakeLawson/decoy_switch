@@ -250,7 +250,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
     Given information about the packet, add seq and ack differences to the
     switch table.
     '''
-    vprintf('Adding %d as table offset value\n' % seq_diff)
     seq_sign = ''
     if seq_diff >= 0:
         seq_sign = 'pos'
@@ -264,8 +263,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
     else:
         ack_sign = 'neg'
         ack_diff *= -1
-
-    vprintf('updated seq_diff:%d ack_diff:%d\n' % (seq_diff, ack_diff))
 
     # Handle sequence numbers
     seq_outbound_cmd = 'table_add seq_offset %s_seq_outbound %s %s %s %s => %d'
@@ -282,7 +279,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
         covert_port,
         seq_diff,
     )
-    vprint('Sending command %s' % (seq_outbound_cmd % params))
     send_to_CLI(seq_outbound_cmd % params)
 
     params = (
@@ -293,7 +289,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
         covert_port,
         ack_diff,
     )
-    vprint('Sending command %s' % (ack_outbound_cmd % params))
     send_to_CLI(ack_outbound_cmd % params)
 
     # In inbound case, src and dst are reversed
@@ -305,7 +300,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
         client_port,
         seq_diff,
     )
-    vprint('Sending command %s' % (seq_outbound_cmd % params))
     send_to_CLI(seq_inbound_cmd % params)
 
     params = (
@@ -316,7 +310,6 @@ def update_seqack_table(seq_diff, ack_diff, client_ip, client_port, decoy_ip,
         client_port,
         ack_diff,
     )
-    vprint('Sending command %s' % (ack_outbound_cmd % params))
     send_to_CLI(ack_inbound_cmd % params)
 
 
@@ -350,8 +343,6 @@ def handle_offsets(p_str):
 
     seq_diff = covert_ack - old_seq
     ack_diff = covert_seq - old_ack + 1
-
-    vprintf('covert_seq:%d covert_ack:%d old_seq:%d old_ack:%d seq_diff:%d ack_diff:%d\n' % (covert_seq, covert_ack, old_seq, old_ack, seq_diff, ack_diff))
 
     # Switch src and dst because inbound and outbound are maintained with
     # respect to the client.

@@ -39,13 +39,8 @@ table_set_default set_ready_for_routing do_set_ready_for_routing
 table_set_default set_synack_metadata do_set_synack_metadata
 table_set_default parse_covert do_parse_covert
 table_set_default close_connection do_close_connection
-table_set_default debug1 _no_op
-table_set_default dbg1 _no_op
-table_set_default dbg2 _no_op
 table_set_default store_seqack do_store_seqack
 table_set_default drop_table _drop
-table_set_default debug _no_op
-table_set_default here _no_op
 table_set_default decoy_clone do_decoy_clone
 table_set_default decoy_routing_recirculate do_recirculate
 table_set_default seq_offset _drop

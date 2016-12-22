@@ -85,21 +85,7 @@ table remove_cpu_header {
   size: 0;
 }
 
-table debug {
-  reads {
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size: 0;
-}
-
 control tcp_ingress {
-  apply(debug);
   if (cpu_metadata.from_cpu == TRUE) {
     apply(remove_cpu_header);
   }
@@ -122,29 +108,7 @@ control ingress {
     ipv4_ingress();
   }
 
-  apply(dbg1);
   decoy_routing_ingress_tail();
-  apply(dbg2);
-}
-
-table dbg1 {
-  reads {
-    standard_metadata.egress_spec: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size:0;
-}
-
-table dbg2 {
-  reads {
-    standard_metadata.egress_spec: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size:0;
 }
 
 /* EGRESS */

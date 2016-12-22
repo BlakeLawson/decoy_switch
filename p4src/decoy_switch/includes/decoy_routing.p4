@@ -218,23 +218,6 @@ table close_connection {
   size: 0;
 }
 
-table debug1 {
-  reads {
-    tcp.flags: exact;
-    ipv4.srcAddr: exact;
-    tcp.srcPort: exact;
-    ipv4.dstAddr: exact;
-    tcp.dstPort: exact;
-    standard_metadata.instance_type: exact;
-    cpu_metadata.from_cpu: exact;
-    decoy_routing_metadata.isCopy: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size: 0;
-}
-
 table out_from_client_done {
   actions {
     decoy_done;
@@ -250,7 +233,6 @@ control handle_out_from_client {
     // time. In that case, it is time to start a new connection with the covert
     // destination.
     apply(close_connection);
-    apply(debug1);
   }
 
   // Else case. Using if to avoid nesting
@@ -322,25 +304,9 @@ table in_to_client_done {
   size: 0;
 }
 
-table here {
-  reads {
-    decoy_routing_metadata.synAck: exact;
-    cpu_metadata.from_cpu: exact;
-    tcp.flags: exact;
-  }
-  actions {
-    _no_op;
-  }
-  size:0;
-}
-
-// TODO: Finish TCP handshake with the covert destination before sending packet
-// to the CPU to save ack mappings.
-//
 // Take care of packet on its way back to client. In normal case, update IP
 // addresses and TCP ports. Extra work required in connection set up.
 control handle_in_to_client {
-  apply(here);
   if (decoy_routing_metadata.synAck == TRUE and cpu_metadata.from_cpu == FALSE) {
     // Store Seq/Ack offset
     apply(store_seqack);
