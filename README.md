@@ -206,6 +206,13 @@ cloning the packet using a mirrored port.
 * (12/10) Worked on presentation for next week. Made diagrams that can be used
 in presentation and the paper.
 
+Week 12/14 - End of semester
+----------------------------
+* (12/14 and 12/15) Final preparation for presentation and presentation.
+* (12/16 - 12/22) Off and on work on prototype and some paper writing. Finished
+the prototype on 12/22!
+
+
 Design Decisions
 ================
 
@@ -261,6 +268,13 @@ shared secret key (will likely need some modification to TLS library to do
 this). Once connection established and encrypted using shared key, client is
 free to initiate HTTPS proxy protocol or SOCKS proxy protocol to connect to the
 covert destination using the decoy switch as a proxy.
+
+
+TCP Options
+-----------
+(12/22) Following Telex's lead and not handling them. For now, getting around
+the issue by saving the TCP options in the initial SYN packet to the decoy
+destination and reusing those options in the SYN to the covert destination.
 
 
 TODO List
