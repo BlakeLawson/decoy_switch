@@ -17,8 +17,10 @@ SWITCH_PATH=$BMV2_PATH/targets/simple_switch/simple_switch
 
 CLI_PATH=$BMV2_PATH/targets/simple_switch/sswitch_CLI
 
-$P4C_BM_SCRIPT $TOP_DIR/p4src/tag_detection.p4 --json tag_detection.json
-$P4C_BM_SCRIPT $TOP_DIR/p4src/client_switch.p4 --json client_switch.json
+$P4C_BM_SCRIPT $TOP_DIR/p4src/decoy_switch/decoy_switch.p4 \
+  --json $TOP_DIR/p4src/decoy_switch/decoy_switch.json
+$P4C_BM_SCRIPT $TOP_DIR/p4src/client_switch/client_switch.p4 \
+  --json $TOP_DIR/p4src/client_switch/client_switch.json
 
 # Parse command line arguments (really just for software switch)
 use_cli=0
@@ -57,15 +59,17 @@ if ! ip link show $inf0 &> /dev/null; then
 fi
 sysctl net.ipv6.conf.$inf0.disable_ipv6=1
 sysctl net.ipv6.conf.$inf1.disable_ipv6=1
-sudo python $TOP_DIR/p4src/decoy_controller.py \
+sudo python $TOP_DIR/p4src/decoy_switch/controller.py \
     --cli $CLI_PATH \
-    --json $TOP_DIR/tag_detection.json \
+    --json $TOP_DIR/p4src/decoy_switch/decoy_switch.json \
+    --switch-addr "10.0.0.10" \
+    --switch-mac "00:00:00:00:00:10" \
     --thrift-port 22222 \
-    --proxy-addr "10.0.0.2" \
-    --proxy-port 8888 \
     --interface $inf0 \
     --verbose \
-    &> $TOP_DIR/log/controller.log &
+    &> $TOP_DIR/log/decoy_controller.log &
+    # --proxy-addr "10.0.0.2" \
+    # --proxy-port 8888 \
 
 # Create CPU port for client switch
 inf2="cpu-veth-2"
@@ -82,21 +86,21 @@ if ! ip link show $inf2 &> /dev/null; then
 fi
 sysctl net.ipv6.conf.$inf2.disable_ipv6=1
 sysctl net.ipv6.conf.$inf3.disable_ipv6=1
-sudo python $TOP_DIR/p4src/client_controller.py \
+sudo python $TOP_DIR/p4src/client_switch/controller.py \
     --cli $CLI_PATH \
-    --json $TOP_DIR/client_switch.json \
+    --json $TOP_DIR/p4src/client_switch/client_switch.json \
     --thrift-port 22223 \
     --interface $inf2 \
     --verbose \
-    &> $TOP_DIR/log/cs_controller.log &
+    &> $TOP_DIR/log/client_controller.log &
 
 sudo PYTHONPATH=$PYTHONPATH:$BMV2_PATH/mininet/ python $TOP_DIR/scripts/topo.py \
     --behavioral-exe $SWITCH_PATH \
     --p4-cli $CLI_PATH \
-    --switch-json $TOP_DIR/tag_detection.json \
-    --switch-commands $TOP_DIR/p4src/commands/tag_commands.txt \
-    --client-json $TOP_DIR/client_switch.json \
-    --client-commands $TOP_DIR/p4src/commands/client_commands.txt \
+    --switch-json $TOP_DIR/p4src/decoy_switch/decoy_switch.json \
+    --switch-commands $TOP_DIR/p4src/decoy_switch/commands.txt \
+    --client-json $TOP_DIR/p4src/client_switch/client_switch.json \
+    --client-commands $TOP_DIR/p4src/client_switch/commands.txt \
     --verbose \
     $([[ $use_cli = 1 ]] && echo "--mininet-cli") \
     $([[ $sswitch != "" ]] && echo "--sw-switch $sswitch")
@@ -109,8 +113,7 @@ mv $TOP_DIR/*.pcap $TOP_DIR/log/
 sudo mn -c
 
 # Kill controllers
-sudo kill $(ps aux | grep "[d]ecoy_controller.py" | awk '{print $2}') -9
-sudo kill $(ps aux | grep "[c]lient_controller.py" | awk '{print $2}') -9
+sudo kill $(ps aux | grep "[c]ontroller.py" | awk '{print $2}') -9
 
 # Disable CPU Port
 if ip link show $inf0 &> /dev/null; then

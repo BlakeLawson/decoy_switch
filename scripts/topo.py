@@ -10,7 +10,7 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
 from mininet.topo import Topo
-from mininet.link import Intf
+from mininet.link import Intf, TCLink
 
 from p4_mininet import P4Switch
 
@@ -102,19 +102,19 @@ class TestTopo(Topo):
                 pcap_dump=True,
                 verbose=True)
 
-        self.addLink('s2', 'client')
-        self.addLink('s1', 's2')
-        self.addLink('s1', 'proxy')
-        self.addLink('s1', 'decoy')
-        self.addLink('s1', 'covert')
+        self.addLink('s2', 'client', bw=1, delay='1ms')
+        self.addLink('s1', 's2', bw=1, delay='1ms')
+        self.addLink('s1', 'proxy', bw=1, delay='1ms')
+        self.addLink('s1', 'decoy', bw=1, delay='1ms')
+        self.addLink('s1', 'covert', bw=1, delay='1ms')
 
 
 def init_hosts(net):
     for h in net.hosts:
         h.cmd('export GOPATH="/home/blake/Documents/code/"')
-        h.cmd("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
-        h.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        h.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+        h.cmd('sysctl -w net.ipv6.conf.all.disable_ipv6=1')
+        h.cmd('sysctl -w net.ipv6.conf.default.disable_ipv6=1')
+        h.cmd('sysctl -w net.ipv6.conf.lo.disable_ipv6=1')
 
 
 def init_switches(net):
@@ -179,6 +179,7 @@ def main():
     net = Mininet(topo=topo,
                   host=CPULimitedHost,
                   switch=P4Switch,
+                  link=TCLink,
                   controller=None)
     if args.sw_switch is None:
         Intf('cpu-veth-1', net.get('s1'), 11)
@@ -193,25 +194,25 @@ def main():
     vprint('mininet started')
 
     proxy = net.getNodeByName('proxy')
-    proxy.cmd('sudo tcpdump -v -i any -s 0 -w log/proxy.pcap ' +
+    proxy.cmd('sudo tcpdump -v -i proxy-eth0 -s 0 -w log/proxy.pcap ' +
               '&> /dev/null &')
     proxy.cmd('go run src/main/proxy.go -port 8888 -file /dev/null ' +
               '&> log/proxy.log &')
 
     decoy = net.getNodeByName('decoy')
-    decoy.cmd('sudo tcpdump -v -s 0 -i any -w log/decoy.pcap ' +
+    decoy.cmd('sudo tcpdump -v -s 0 -i decoy-eth0 -w log/decoy.pcap ' +
               '&> /dev/null &')
     decoy.cmd('go run src/main/server.go -f src/server/decoy.html ' +
               '&> log/decoy.log &')
 
     covert = net.getNodeByName('covert')
-    covert.cmd('sudo tcpdump -v -s 0 -i any -w log/covert.pcap ' +
+    covert.cmd('sudo tcpdump -v -s 0 -i covert-eth0 -w log/covert.pcap ' +
                '&> /dev/null &')
     covert.cmd('go run src/main/server.go -f src/server/covert.html ' +
                '&> log/covert.log &')
 
     client = net.getNodeByName('client')
-    client.cmd('sudo tcpdump -v -s 0 -i any -w log/client.pcap ' +
+    client.cmd('sudo tcpdump -v -s 0 -i client-eth0 -w log/client.pcap ' +
                '&> /dev/null &')
     client.cmd('go run src/main/client.go -decoy "10.0.0.3:8080" ' +
                '-covert "10.0.0.4:8080" &> log/client.log &')
@@ -221,7 +222,7 @@ def main():
         CLI(net)
     else:
         # Make sure that the test has time to finish
-        sleep(8)
+        sleep(15)
 
     vprint('Shutting down')
 

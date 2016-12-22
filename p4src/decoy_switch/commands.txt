@@ -1,0 +1,51 @@
+table_set_default send_frame _drop
+table_add send_frame rewrite_mac 1 => 00:00:00:00:00:01
+table_add send_frame rewrite_mac 2 => 00:00:00:00:00:02
+table_add send_frame rewrite_mac 3 => 00:00:00:00:00:03
+table_add send_frame rewrite_mac 4 => 00:00:00:00:00:04
+table_set_default forward _drop
+table_add forward set_dmac 10.0.0.1 => 00:00:00:00:00:01
+table_add forward set_dmac 10.0.0.2 => 00:00:00:00:00:02
+table_add forward set_dmac 10.0.0.3 => 00:00:00:00:00:03
+table_add forward set_dmac 10.0.0.4 => 00:00:00:00:00:04
+table_set_default ipv4_lpm _drop
+table_add ipv4_lpm set_nhop 10.0.0.1/32 => 10.0.0.1 1
+table_add ipv4_lpm set_nhop 10.0.0.2/32 => 10.0.0.2 2
+table_add ipv4_lpm set_nhop 10.0.0.3/32 => 10.0.0.3 3
+table_add ipv4_lpm set_nhop 10.0.0.4/32 => 10.0.0.4 4
+table_set_default update_smac _no_op
+table_add update_smac do_update_smac 10.0.0.1/32 => 00:00:00:00:00:01
+table_add update_smac do_update_smac 10.0.0.2/32 => 00:00:00:00:00:02
+table_add update_smac do_update_smac 10.0.0.3/32 => 00:00:00:00:00:03
+table_add update_smac do_update_smac 10.0.0.4/32 => 00:00:00:00:00:04
+table_add update_smac do_update_smac 10.0.0.10/32 => 00:00:00:00:00:10
+table_set_default arp_resp_lookup _drop
+table_add arp_resp_lookup set_arp_resp 10.0.0.1 => 00:00:00:00:00:01
+table_add arp_resp_lookup set_arp_resp 10.0.0.2 => 00:00:00:00:00:02
+table_add arp_resp_lookup set_arp_resp 10.0.0.3 => 00:00:00:00:00:03
+table_add arp_resp_lookup set_arp_resp 10.0.0.4 => 00:00:00:00:00:04
+table_add arp_resp_lookup set_arp_resp 10.0.0.10 => 00:00:00:00:00:10
+table_set_default check_mappings _no_op
+mirroring_add 250 11
+table_set_default remove_cpu_header do_remove_cpu_header
+table_set_default send_to_cpu do_cpu_encap
+table_set_default tagging_init do_tagging_init
+table_set_default calculate_tag do_calculate_tag
+table_set_default insert_syn do_insert_syn
+table_set_default insert_ack do_insert_ack
+table_set_default read_syn do_read_syn
+table_set_default read_ack do_read_ack
+table_set_default set_ready_for_routing do_set_ready_for_routing
+table_set_default set_synack_metadata do_set_synack_metadata
+table_set_default parse_covert do_parse_covert
+table_set_default close_connection do_close_connection
+table_set_default store_seqack do_store_seqack
+table_set_default drop_table _drop
+table_set_default decoy_clone do_decoy_clone
+table_set_default decoy_routing_recirculate do_recirculate
+table_set_default seq_offset _drop
+table_set_default ack_offset _drop
+table_set_default make_client_ack do_make_client_ack
+table_set_default swap_srcdst do_swap_srcdst
+table_set_default out_from_client_done decoy_done
+table_set_default in_to_client_done decoy_done
