@@ -11,6 +11,7 @@ from subprocess import Popen, PIPE
 import argparse
 import struct
 import sys
+import threading
 
 # Set up parser for command line arguments
 parser = argparse.ArgumentParser(description='Decoy Switch Controller')
@@ -28,6 +29,7 @@ args = parser.parse_args()
 
 # Store client/dst pairs seen so far.
 seen = {}
+seen_lock = threading.Lock()
 
 
 def vprint(s):
@@ -100,17 +102,19 @@ def process_cpu_packet(packet):
         vprint(e)
         return
 
-    # Don't reprocess packet
-    if (ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport) in seen:
-        vprint('already saw packet')
-        return
-
-    vprintf('initial seqNo: %d\ttag: %d\n' % (tcp_hdr.seq, tag))
-
+    # Compute the difference
     diff = tag - tcp_hdr.seq
 
+    # Don't reprocess packet
+    seen_lock.acquire()
+    if (ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport) in seen:
+        seen_lock.release()
+        vprint('already saw packet')
+        return
     seen[(ip_hdr.src, tcp_hdr.sport, ip_hdr.dst, tcp_hdr.dport)] = diff
+    seen_lock.release()
 
+    vprintf('initial seqNo: %d\ttag: %d\n' % (tcp_hdr.seq, tag))
     vprint('Packet received')
     vprint(p.summary())
 
