@@ -1,5 +1,5 @@
 PAM==0.4.2
-Pillow==6.2.0
+Pillow==7.1.0
 Tenjin==1.1.1
 Twisted-Core==13.2.0
 Twisted-Web==13.2.0
